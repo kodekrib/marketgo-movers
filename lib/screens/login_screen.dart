@@ -147,14 +147,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       SizedBox(height: MediaQuery.of(context).size.height * 0.08),
-                      Text(
-                        MoversApp.appName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.4,
-                        ),
+                      Row(
+                        children: [
+                          Icon(Icons.local_shipping_rounded,
+                              color: Colors.white, size: 32),
+                          const SizedBox(width: 12),
+                          Text(
+                            MoversApp.appName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       const Padding(
