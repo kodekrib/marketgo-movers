@@ -114,17 +114,14 @@ class _MoversNav extends StatelessWidget {
         children: List.generate(items.length, (index) {
           final (icon, label) = items[index];
           final selected = index == currentIndex;
-          final color = selected
-              ? Colors.white
-              : const Color(0xFF9AA1AA);
+          final color = selected ? Colors.white : const Color(0xFF9AA1AA);
           return Expanded(
             child: InkWell(
               onTap: () => onTap(index),
               borderRadius: BorderRadius.circular(999),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 decoration: BoxDecoration(
                   color: selected ? MoversApp.brandOrange : Colors.transparent,
                   borderRadius: BorderRadius.circular(999),
@@ -138,7 +135,8 @@ class _MoversNav extends StatelessWidget {
                       label,
                       style: TextStyle(
                         fontSize: 10.5,
-                        fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                        fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w500,
                         color: color,
                       ),
                     ),
@@ -202,14 +200,16 @@ class _BookTabState extends State<BookTab> {
     final token = widget.auth.accessToken;
     if (token == null || token == 'demo.access') {
       final active = demoMovingJobs().where((j) => j.isActive).toList();
-      if (mounted) setState(() => _activeJob = active.isNotEmpty ? active.first : null);
+      if (mounted)
+        setState(() => _activeJob = active.isNotEmpty ? active.first : null);
       return;
     }
     setState(() => _loading = true);
     try {
       final jobs = await widget.movers.jobs(token);
       final live = jobs.where((j) => j.isActive).toList();
-      if (mounted) setState(() => _activeJob = live.isNotEmpty ? live.first : null);
+      if (mounted)
+        setState(() => _activeJob = live.isNotEmpty ? live.first : null);
     } catch (_) {
       if (mounted) setState(() => _activeJob = null);
     } finally {
@@ -221,9 +221,8 @@ class _BookTabState extends State<BookTab> {
 
   @override
   Widget build(BuildContext context) {
-    final name = widget.auth.isAuthenticated
-        ? widget.auth.user!.firstName
-        : 'there';
+    final name =
+        widget.auth.isAuthenticated ? widget.auth.user!.firstName : 'there';
     return AppScrollTab(
       slivers: [
         SliverToBoxAdapter(
@@ -281,7 +280,8 @@ class _BookTabState extends State<BookTab> {
     Navigator.of(context)
         .push(
           MaterialPageRoute<void>(
-            builder: (_) => BookMoveScreen(auth: widget.auth, movers: widget.movers),
+            builder: (_) =>
+                BookMoveScreen(auth: widget.auth, movers: widget.movers),
           ),
         )
         .then((_) => _refresh());
@@ -345,6 +345,7 @@ class _HeroHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -356,17 +357,20 @@ class _HeroHeader extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            top: -60,
-            right: -40,
-            child: _Glow(diameter: 240, color: MoversApp.brandOrange.withOpacity(0.32)),
+            top: 0,
+            right: 0,
+            child: _Glow(
+                diameter: 220, color: MoversApp.brandOrange.withOpacity(0.28)),
           ),
           Positioned(
-            bottom: -80,
-            left: -50,
-            child: _Glow(diameter: 260, color: MoversApp.brandOrangeLight.withOpacity(0.14)),
+            bottom: 0,
+            left: 0,
+            child: _Glow(
+                diameter: 200,
+                color: MoversApp.brandOrangeLight.withOpacity(0.12)),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 44),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
             child: Row(
               children: [
                 Container(
@@ -462,7 +466,7 @@ class _WhereToBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, -26, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -531,7 +535,8 @@ class _WhereToBar extends StatelessWidget {
 }
 
 class _RouteRow extends StatelessWidget {
-  const _RouteRow({required this.icon, required this.color, required this.hint});
+  const _RouteRow(
+      {required this.icon, required this.color, required this.hint});
 
   final IconData icon;
   final Color color;
@@ -629,8 +634,12 @@ class _ActiveJobCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white.withOpacity(0.06)),
           boxShadow: const [
-            BoxShadow(color: Color(0x3D000000), blurRadius: 26, offset: Offset(0, 12)),
-            BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 4)),
+            BoxShadow(
+                color: Color(0x3D000000),
+                blurRadius: 26,
+                offset: Offset(0, 12)),
+            BoxShadow(
+                color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 4)),
           ],
         ),
         child: Column(
@@ -638,7 +647,8 @@ class _ActiveJobCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.sailing_rounded, color: Colors.white, size: 22),
+                const Icon(Icons.sailing_rounded,
+                    color: Colors.white, size: 22),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -663,8 +673,8 @@ class _ActiveJobCard extends StatelessWidget {
             Row(
               children: [
                 Text('Move #${job.id}',
-                    style: const TextStyle(
-                        color: Colors.white54, fontSize: 12.5)),
+                    style:
+                        const TextStyle(color: Colors.white54, fontSize: 12.5)),
                 const Spacer(),
                 OutlinedButton.icon(
                   onPressed: onRefresh,
@@ -702,9 +712,24 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
-      (Icons.local_shipping_rounded, 'Book a move', onBook, MoversApp.brandOrange),
-      (Icons.receipt_long_rounded, 'My moves', onActivity, const Color(0xFF2563EB)),
-      (Icons.help_outline_rounded, 'Help & FAQ', onHelp, const Color(0xFF16A34A)),
+      (
+        Icons.local_shipping_rounded,
+        'Book a move',
+        onBook,
+        MoversApp.brandOrange
+      ),
+      (
+        Icons.receipt_long_rounded,
+        'My moves',
+        onActivity,
+        const Color(0xFF2563EB)
+      ),
+      (
+        Icons.help_outline_rounded,
+        'Help & FAQ',
+        onHelp,
+        const Color(0xFF16A34A)
+      ),
     ];
 
     return Padding(
@@ -713,7 +738,10 @@ class _QuickActions extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Quick actions',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16)),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontSize: 16)),
           const SizedBox(height: 10),
           Row(
             children: List.generate(actions.length, (index) {
