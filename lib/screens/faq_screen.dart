@@ -14,10 +14,9 @@ class FaqScreen extends StatefulWidget {
 }
 
 class _FaqScreenState extends State<FaqScreen> {
-  final FaqService _service =
-      FaqService(api: ApiClient());
+  final FaqService _service = FaqService(api: ApiClient());
 
-  List<FaqEntry> _faqs = demoFaqs();
+  List<FaqEntry> _faqs = [];
   bool _loading = true;
   String? _error;
 
@@ -79,7 +78,8 @@ class _FaqScreenState extends State<FaqScreen> {
                         const SizedBox(height: 4),
                         Text(
                           'Common answers about booking, vehicles, payment and tracking.',
-                          style: TextStyle(color: Colors.white.withOpacity(0.85)),
+                          style:
+                              TextStyle(color: Colors.white.withOpacity(0.85)),
                         ),
                       ],
                     ),
@@ -100,8 +100,8 @@ class _FaqScreenState extends State<FaqScreen> {
                         const Icon(Icons.cloud_off_rounded,
                             size: 40, color: Color(0xFF9AA1AA)),
                         const SizedBox(height: 12),
-const Text('Could not load help content.',
-                              textAlign: TextAlign.center),
+                        const Text('Could not load help content.',
+                            textAlign: TextAlign.center),
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
                           onPressed: _load,
@@ -115,61 +115,72 @@ const Text('Could not load help content.',
               )
             else
               Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                  itemCount: _faqs.length,
-                  itemBuilder: (context, index) {
-                    final faq = _faqs[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFEAF0EE)),
-                      ),
-                      child: ExpansionTile(
-                        shape: const Border(),
-                        collapsedShape: const Border(),
-                        tilePadding:
-                            const EdgeInsets.symmetric(horizontal: 16),
-                        childrenPadding:
-                            const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        leading: CircleAvatar(
-                          backgroundColor: MoversApp.brandOrangeLight,
-                          radius: 16,
+                child: _faqs.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
                           child: Text(
-                            '${index + 1}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: MoversApp.brandOrangeDark,
+                            'No help content available yet.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                        itemCount: _faqs.length,
+                        itemBuilder: (context, index) {
+                          final faq = _faqs[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border:
+                                  Border.all(color: const Color(0xFFEAF0EE)),
                             ),
-                          ),
-                        ),
-                        title: Text(
-                          faq.question,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14.5,
-                          ),
-                        ),
-                        children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              faq.answer,
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                height: 1.5,
-                                color: Color(0xFF4B5563),
+                            child: ExpansionTile(
+                              shape: const Border(),
+                              collapsedShape: const Border(),
+                              tilePadding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              childrenPadding:
+                                  const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              leading: CircleAvatar(
+                                backgroundColor: MoversApp.brandOrangeLight,
+                                radius: 16,
+                                child: Text(
+                                  '${index + 1}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: MoversApp.brandOrangeDark,
+                                  ),
+                                ),
                               ),
+                              title: Text(
+                                faq.question,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14.5,
+                                ),
+                              ),
+                              children: [
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    faq.answer,
+                                    style: const TextStyle(
+                                      fontSize: 13.5,
+                                      height: 1.5,
+                                      color: Color(0xFF4B5563),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
               ),
           ],
         ),

@@ -45,7 +45,8 @@ class BookMoveRequest {
       };
 }
 
-/// Calls the authenticated customer moving-job endpoints.
+/// Calls the authenticated mover (> /api/v1/mover) moving-job + pricing
+/// endpoints and the public vehicle-type catalog.
 class MoverService {
   MoverService({ApiClient? api}) : api = api ?? ApiClient();
 
@@ -53,9 +54,50 @@ class MoverService {
 
   Map<String, String> _auth(String token) => {'Authorization': 'Bearer $token'};
 
+  /// Loads the active public vehicle catalog (`GET /api/v1/vehicle-types`).
+  Future<List<MoverVehicleType>> vehicleTypes() async {
+    final data = await api.get('/api/v1/vehicle-types');
+    final list = data['vehicle_types'];
+    if (list is List) {
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(MoverVehicleType.fromJson)
+          .where((v) => v.isActive)
+          .toList();
+    }
+    return const [];
+  }
+
+  /// Up-front fare estimate for a route + vehicle (`POST /api/v1/mover/quote`).
+  Future<TripQuote> quote(
+    String token, {
+    required int vehicleTypeId,
+    required double pickupLatitude,
+    required double pickupLongitude,
+    required double deliveryLatitude,
+    required double deliveryLongitude,
+    required double weightKg,
+  }) async {
+    final data = await api.post(
+      '/api/v1/mover/quote',
+      headers: _auth(token),
+      body: <String, dynamic>{
+        'vehicle_type_id': vehicleTypeId,
+        'pickup_latitude': pickupLatitude,
+        'pickup_longitude': pickupLongitude,
+        'delivery_latitude': deliveryLatitude,
+        'delivery_longitude': deliveryLongitude,
+        'weight_kg': weightKg,
+      },
+    );
+    final quote = data['quote'];
+    if (quote is Map<String, dynamic>) return TripQuote.fromJson(quote);
+    throw const ApiException('Unexpected quote payload');
+  }
+
   Future<MovingJob> createJob(String token, BookMoveRequest req) async {
     final data = await api.post(
-      '/api/v1/customer/moving-jobs',
+      '/api/v1/mover/moving-jobs',
       headers: _auth(token),
       body: req.toJson(),
     );
@@ -66,7 +108,7 @@ class MoverService {
 
   Future<List<MovingJob>> jobs(String token) async {
     final data = await api.get(
-      '/api/v1/customer/moving-jobs',
+      '/api/v1/mover/moving-jobs',
       headers: _auth(token),
     );
     final list = data['jobs'];
@@ -81,7 +123,7 @@ class MoverService {
 
   Future<MovingJob> job(String token, int id) async {
     final data = await api.get(
-      '/api/v1/customer/moving-jobs/$id',
+      '/api/v1/mover/moving-jobs/$id',
       headers: _auth(token),
     );
     final job = data['job'];
@@ -91,48 +133,8 @@ class MoverService {
 
   Future<void> cancel(String token, int id) async {
     await api.post(
-      '/api/v1/customer/moving-jobs/$id/cancel',
+      '/api/v1/mover/moving-jobs/$id/cancel',
       headers: _auth(token),
     );
   }
-}
-
-/// Demo records shown when an unauthenticated/demo session explores the app.
-List<MovingJob> demoMovingJobs() {
-  return [
-    const MovingJob(
-      id: 1001,
-      customerId: 1,
-      riderId: 1,
-      vehicleType: 'pickup_truck',
-      pickupAddress: '12 Admiralty Way, Lekki Phase 1',
-      deliveryAddress: '3 Bourdillon Road, Ikoyi',
-      description: 'Sofa, two mattresses and a wardrobe',
-      itemCount: 8,
-      extraPackers: 1,
-      packerPrice: 2000,
-      totalPackerFee: 2000,
-      quotedPrice: 45000,
-      platformFee: 3760,
-      totalAmount: 50760,
-      status: MovingJobStatus.inTransit,
-      riderName: 'Tunde Adebayo',
-      vehicleName: 'Toyota Hilux',
-    ),
-    MovingJob(
-      id: 1000,
-      customerId: 1,
-      vehicleType: 'van',
-      pickupAddress: '8 Adeola Odeku, VI',
-      deliveryAddress: '21 Surulere Industrial Estate',
-      description: 'Office desks and chairs',
-      itemCount: 14,
-      extraPackers: 0,
-      status: MovingJobStatus.delivered,
-      quotedPrice: 38000,
-      platformFee: 3040,
-      totalAmount: 41040,
-      createdAt: DateTime.now().subtract(const Duration(days: 3)),
-    ),
-  ];
 }

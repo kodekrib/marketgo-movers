@@ -16,8 +16,7 @@ import 'job_detail_screen.dart';
 /// MarketGO Movers — app shell with bottom navigation.
 ///
 /// Three tabs: Home (book + active move), Activity (history), Account.
-/// Booking and tracking are gated behind marketgo-api auth; demo sessions show
-/// sample data so the app can be explored before the backend is up.
+/// Booking and tracking are gated behind marketgo-api auth (mover role).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -37,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _api = ApiClient();
     _auth = AuthModel(api: _api);
     _movers = MoverService(api: _api);
+    _auth.restoreSession();
   }
 
   @override
@@ -172,20 +172,15 @@ class BookTab extends StatefulWidget {
 }
 
 class _BookTabState extends State<BookTab> {
-  static const _vehicleTypes = [
-    ('pickup_truck', 'Pickup', Icons.local_shipping_rounded),
-    ('van', 'Van', Icons.directions_car_rounded),
-    ('mini_truck', 'Mini truck', Icons.fire_truck_rounded),
-    ('lorry', 'Lorry', Icons.airport_shuttle_rounded),
-  ];
-
   MovingJob? _activeJob;
   bool _loading = false;
+  List<MoverVehicleType> _vehicleTypes = const [];
 
   @override
   void initState() {
     super.initState();
     _loadActive();
+    _loadVehicleTypes();
   }
 
   @override
@@ -196,12 +191,19 @@ class _BookTabState extends State<BookTab> {
     }
   }
 
+  Future<void> _loadVehicleTypes() async {
+    try {
+      final types = await widget.movers.vehicleTypes();
+      if (mounted) setState(() => _vehicleTypes = types);
+    } catch (_) {
+      if (mounted) setState(() => _vehicleTypes = const []);
+    }
+  }
+
   Future<void> _loadActive() async {
     final token = widget.auth.accessToken;
-    if (token == null || token == 'demo.access') {
-      final active = demoMovingJobs().where((j) => j.isActive).toList();
-      if (mounted)
-        setState(() => _activeJob = active.isNotEmpty ? active.first : null);
+    if (token == null) {
+      if (mounted) setState(() => _activeJob = null);
       return;
     }
     setState(() => _loading = true);
@@ -461,7 +463,7 @@ class _WhereToBar extends StatelessWidget {
 
   final VoidCallback onTap;
   final ValueChanged<String> onVehicle;
-  final List<(String, String, IconData)> vehicleTypes;
+  final List<MoverVehicleType> vehicleTypes;
 
   @override
   Widget build(BuildContext context) {
@@ -511,16 +513,16 @@ class _WhereToBar extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
               child: Row(
                 children: List.generate(vehicleTypes.length, (index) {
-                  final (type, label, icon) = vehicleTypes[index];
+                  final v = vehicleTypes[index];
                   return Expanded(
                     child: Padding(
                       padding: EdgeInsets.only(
                         right: index < vehicleTypes.length - 1 ? 8 : 0,
                       ),
                       child: _VehicleChip(
-                        icon: icon,
-                        label: label,
-                        onTap: () => onVehicle(type),
+                        icon: vehicleIconForType(v.name),
+                        label: v.label,
+                        onTap: () => onVehicle(v.name),
                       ),
                     ),
                   );

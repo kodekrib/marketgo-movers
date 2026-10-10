@@ -23,34 +23,25 @@ class ApiException implements Exception {
 
 /// Thin JSON client for the marketgo-api (shared by auth + mover services).
 class ApiClient {
-  ApiClient({http.Client? httpClient, String? baseUrl, this.isOffline = false})
+  ApiClient({http.Client? httpClient, String? baseUrl})
       : _http = httpClient ?? http.Client(),
         baseUrl = baseUrl ?? defaultApiBaseUrl();
 
   final http.Client _http;
   final String baseUrl;
 
-  /// When true (e.g. an unauthenticated demo session), network calls are
-  /// short-circuited so screens fall back to bundled demo data.
-  bool isOffline;
-
-  Future<void> _guard() async {
-    if (isOffline) {
-      throw const ApiException('Offline demo session', statusCode: 0);
-    }
-  }
-
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,
     Map<String, String>? headers,
   }) async {
-    await _guard();
-    final res = await _http.post(
-      Uri.parse('$baseUrl$path'),
-      headers: {'Content-Type': 'application/json', ...?headers},
-      body: jsonEncode(body ?? const <String, dynamic>{}),
-    ).timeout(_timeout);
+    final res = await _http
+        .post(
+          Uri.parse('$baseUrl$path'),
+          headers: {'Content-Type': 'application/json', ...?headers},
+          body: jsonEncode(body ?? const <String, dynamic>{}),
+        )
+        .timeout(_timeout);
     return _decode(res);
   }
 
@@ -58,11 +49,12 @@ class ApiClient {
     String path, {
     Map<String, String>? headers,
   }) async {
-    await _guard();
-    final res = await _http.get(
-      Uri.parse('$baseUrl$path'),
-      headers: headers ?? const <String, String>{},
-    ).timeout(_timeout);
+    final res = await _http
+        .get(
+          Uri.parse('$baseUrl$path'),
+          headers: headers ?? const <String, String>{},
+        )
+        .timeout(_timeout);
     return _decode(res);
   }
 
@@ -70,11 +62,12 @@ class ApiClient {
     String path, {
     Map<String, String>? headers,
   }) async {
-    await _guard();
-    final res = await _http.delete(
-      Uri.parse('$baseUrl$path'),
-      headers: headers ?? const <String, String>{},
-    ).timeout(_timeout);
+    final res = await _http
+        .delete(
+          Uri.parse('$baseUrl$path'),
+          headers: headers ?? const <String, String>{},
+        )
+        .timeout(_timeout);
     return _decode(res);
   }
 
@@ -88,7 +81,8 @@ class ApiClient {
       json = const <String, dynamic>{};
     }
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      final message = (json['error'] as String?) ?? 'Request failed (${res.statusCode})';
+      final message =
+          (json['error'] as String?) ?? 'Request failed (${res.statusCode})';
       throw ApiException(message, statusCode: res.statusCode);
     }
     return json;

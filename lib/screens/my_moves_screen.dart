@@ -38,8 +38,8 @@ class _MyMovesTabState extends State<MyMovesTab> {
 
   Future<void> _load() async {
     final token = widget.auth.accessToken;
-    if (token == null || token == 'demo.access') {
-      if (mounted) setState(() => _jobs = demoMovingJobs());
+    if (token == null) {
+      if (mounted) setState(() => _jobs = []);
       return;
     }
     setState(() => _loading = true);

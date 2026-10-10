@@ -23,7 +23,7 @@ class JobDetailScreen extends StatefulWidget {
   final AuthModel? auth;
   final MoverService? movers;
 
-  /// When true, the screen shows static demo data (no backend calls).
+  /// When true, payments and cancellation are hidden (plain read-only view).
   final bool readOnly;
   final VoidCallback? onCancel;
 
@@ -44,12 +44,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _pay() async {
-    final token = widget.auth?.accessToken ?? '';
-    // Demo mode — simulate a successful payment without hitting the network.
-    if (token.isEmpty || token == 'demo.access') {
-      setState(() => _job = _copyWithPaymentStatus('paid'));
+    final token = widget.auth?.accessToken;
+    if (token == null || token.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Payment successful (demo).')),
+        const SnackBar(content: Text('Sign in to pay for this move.')),
       );
       return;
     }
@@ -147,11 +145,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
     if (confirmed != true || widget.readOnly) return;
 
-    final token = widget.auth?.accessToken ?? '';
-    if (token == 'demo.access') {
-      setState(() => _cancelling = false);
-      return;
-    }
+    final token = widget.auth?.accessToken;
+    if (token == null || token.isEmpty) return;
     setState(() {
       _cancelling = true;
       _error = null;

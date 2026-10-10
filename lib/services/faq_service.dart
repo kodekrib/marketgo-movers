@@ -7,23 +7,17 @@ class FaqService {
 
   final ApiClient api;
 
-  /// Fetches FAQs from the backend; returns bundled demo content when the
-  /// backend isn't reachable (e.g. an offline demo session).
+  /// Fetches FAQs from the backend. Returns an empty list when none are
+  /// configured; network/auth errors bubble up to the caller.
   Future<List<FaqEntry>> byTarget(String target) async {
-    try {
-      final data = await api.get('/api/v1/faqs/$target');
-      final items = data['faqs'];
-      if (items is List) {
-        final parsed = items
-            .whereType<Map<String, dynamic>>()
-            .map(FaqEntry.fromJson)
-            .toList();
-        if (parsed.isNotEmpty) return parsed;
-      }
-      return demoFaqs();
-    } on ApiException catch (e) {
-      if (e.statusCode == 0) return demoFaqs();
-      rethrow;
+    final data = await api.get('/api/v1/faqs/$target');
+    final items = data['faqs'];
+    if (items is List) {
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(FaqEntry.fromJson)
+          .toList();
     }
+    return const [];
   }
 }

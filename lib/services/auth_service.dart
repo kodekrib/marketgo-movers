@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
 
 /// The signed-in mover customer profile returned by /api/v1/auth/me.
@@ -62,9 +63,8 @@ class SendOtpResult {
   factory SendOtpResult.fromJson(Map<String, dynamic> json) {
     return SendOtpResult(
       expiresIn: (json['expires_in'] as num?)?.toInt() ?? 600,
-      channels:
-          (json['channels'] as List?)?.map((e) => '$e').toList() ??
-              const <String>[],
+      channels: (json['channels'] as List?)?.map((e) => '$e').toList() ??
+          const <String>[],
       devCode: json['dev_code'] as String?,
     );
   }
@@ -90,9 +90,8 @@ class MfaChallenge {
     return MfaChallenge(
       mfaToken: json['mfa_token'] as String? ?? '',
       expiresIn: (json['expires_in'] as num?)?.toInt() ?? 600,
-      channels:
-          (json['channels'] as List?)?.map((e) => '$e').toList() ??
-              const <String>[],
+      channels: (json['channels'] as List?)?.map((e) => '$e').toList() ??
+          const <String>[],
       devCode: json['dev_code'] as String?,
     );
   }
@@ -149,12 +148,12 @@ class AuthService {
 
   /// Requests a one-time code delivered over WhatsApp and/or email. The phone
   /// is sent as typed; the backend normalises it to international format.
-  /// Movers sign in as `customer` on the shared auth endpoints.
+  /// Movers self-sign-up with the `mover` OTP role.
   Future<SendOtpResult> sendOtp({
     required String phone,
     String? email,
     String? name,
-    String role = 'customer',
+    String role = 'mover',
   }) async {
     final data = await api.post(
       '/api/v1/auth/otp/send',
@@ -174,7 +173,7 @@ class AuthService {
     required String phone,
     required String code,
     String? name,
-    String role = 'customer',
+    String role = 'mover',
   }) async {
     final data = await api.post(
       '/api/v1/auth/otp/verify',
@@ -198,6 +197,16 @@ class AuthService {
     throw const ApiException('Unexpected profile payload');
   }
 
+  /// Exchanges a still-valid refresh token for a fresh token pair. Used by
+  /// [AuthModel.restoreSession] when the saved access token has expired.
+  Future<TokenPair> refresh(String refreshToken) async {
+    final data = await api.post(
+      '/api/v1/auth/refresh',
+      body: {'refresh_token': refreshToken},
+    );
+    return TokenPair.fromJson(data);
+  }
+
   Future<void> signOut(String accessToken, String refreshToken) async {
     await api.post(
       '/api/v1/auth/logout',
@@ -207,25 +216,29 @@ class AuthService {
   }
 }
 
-/// Reactive auth state owned by the app shell.
+/// Reactive auth state owned by the app shell. Persists the token pair on
+/// this device so the session survives app restarts.
 class AuthModel extends ChangeNotifier {
   AuthModel({AuthService? service, ApiClient? api})
-      : _service = service ?? AuthService(api: api),
-        _api = api;
+      : _service = service ?? AuthService(api: api);
+
+  static const _kAccessKey = 'movers.auth.access_token';
+  static const _kRefreshKey = 'movers.auth.refresh_token';
 
   final AuthService _service;
-  final ApiClient? _api;
 
   AuthUser? _user;
   String? _accessToken;
   String? _refreshToken;
   bool _loading = false;
+  bool _restoring = false;
   String? _error;
   MfaChallenge? _pendingMfa;
 
   AuthUser? get user => _user;
   bool get isAuthenticated => _user != null;
   bool get loading => _loading;
+  bool get restoring => _restoring;
   String? get error => _error;
 
   /// Challenge waiting for a one-time code, set when the password sign-in
@@ -241,16 +254,96 @@ class AuthModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Applies a freshly issued token pair: loads the profile and enters an
-  /// authenticated online session (returns false and sets [error] when the
-  /// profile cannot be loaded).
+  /// Applies a freshly issued token pair: loads the profile, persists the
+  /// tokens and enters an authenticated session (returns false and sets
+  /// [error] when the profile cannot be loaded).
   Future<bool> _completeSignIn(TokenPair tokens) async {
     final user = await _service.me(tokens.accessToken);
-    _api?.isOffline = false;
+    await _persistTokens(tokens);
     _accessToken = tokens.accessToken;
     _refreshToken = tokens.refreshToken;
     _user = user;
     return true;
+  }
+
+  /// Restores a previously saved session on app start. Validates the profile
+  /// via /api/v1/auth/me; when the access token has expired it trades the
+  /// refresh token for a fresh pair first. Best-effort — any failure silently
+  /// clears the saved session so the user just signs in again.
+  Future<void> restoreSession() async {
+    final (access, refresh) = await _readPersistedTokens();
+    if (access == null || refresh == null) return;
+    _restoring = true;
+    notifyListeners();
+    try {
+      AuthUser user;
+      try {
+        user = await _service.me(access);
+      } on ApiException catch (e) {
+        if (e.statusCode != 401) {
+          await _clearPersistedTokens();
+          return;
+        }
+        // Access token expired — try the refresh token before giving up.
+        try {
+          final refreshed = await _service.refresh(refresh);
+          await _persistTokens(refreshed);
+          _accessToken = refreshed.accessToken;
+          _refreshToken = refreshed.refreshToken;
+          user = await _service.me(refreshed.accessToken);
+        } on ApiException {
+          await _clearPersistedTokens();
+          return;
+        }
+      }
+      _accessToken = access;
+      _refreshToken = refresh;
+      _user = user;
+    } on ApiException {
+      await _clearPersistedTokens();
+    } catch (_) {
+      await _clearPersistedTokens();
+    } finally {
+      _restoring = false;
+      if (_user != null) notifyListeners();
+    }
+  }
+
+  Future<(String?, String?)> _readPersistedTokens() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final access = prefs.getString(_kAccessKey);
+      final refresh = prefs.getString(_kRefreshKey);
+      if (access == null ||
+          access.isEmpty ||
+          refresh == null ||
+          refresh.isEmpty) {
+        return (null, null);
+      }
+      return (access, refresh);
+    } catch (_) {
+      return (null, null);
+    }
+  }
+
+  Future<void> _persistTokens(TokenPair tokens) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kAccessKey, tokens.accessToken);
+      await prefs.setString(_kRefreshKey, tokens.refreshToken);
+    } catch (_) {
+      // Persistence is best-effort (e.g. locked storage); the session still works.
+    }
+  }
+
+  Future<void> _clearPersistedTokens() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kAccessKey);
+      await prefs.remove(_kRefreshKey);
+    } catch (_) {
+      // Ignore — nothing to do if storage is unavailable.
+    }
   }
 
   /// Password sign-in. Returns true when the session is established; when the
@@ -317,7 +410,7 @@ class AuthModel extends ChangeNotifier {
   /// Requests an OTP code for the given phone. Loading/error state for the
   /// request lives on the OTP screen; the result carries the dev code.
   Future<SendOtpResult> sendOtp(String phone, {String? email}) {
-    return _service.sendOtp(phone: phone, email: email, role: 'customer');
+    return _service.sendOtp(phone: phone, email: email, role: 'mover');
   }
 
   /// Completes phone sign-in: verifies the code, loads the profile and enters
@@ -328,7 +421,7 @@ class AuthModel extends ChangeNotifier {
     notifyListeners();
     try {
       final tokens =
-          await _service.verifyOtp(phone: phone, code: code, role: 'customer');
+          await _service.verifyOtp(phone: phone, code: code, role: 'mover');
       return await _completeSignIn(tokens);
     } on ApiException catch (e) {
       _error = e.message;
@@ -347,6 +440,7 @@ class AuthModel extends ChangeNotifier {
     _refreshToken = null;
     _error = null;
     notifyListeners();
+    await _clearPersistedTokens();
     if (token != null && refresh != null) {
       try {
         await _service.signOut(token, refresh);

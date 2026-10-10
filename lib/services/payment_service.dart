@@ -1,6 +1,6 @@
 import 'api_client.dart';
 
-/// Calls the authenticated customer payment endpoints for moving jobs.
+/// Calls the authenticated mover payment endpoints for moving jobs.
 class PaymentService {
   PaymentService({ApiClient? api}) : api = api ?? ApiClient();
   final ApiClient api;
@@ -14,7 +14,7 @@ class PaymentService {
     required int jobId,
   }) async {
     final data = await api.post(
-      '/api/v1/customer/moving-jobs/$jobId/pay',
+      '/api/v1/mover/moving-jobs/$jobId/pay',
       headers: _auth(token),
       body: const <String, dynamic>{},
     );
@@ -27,7 +27,7 @@ class PaymentService {
     required String reference,
   }) async {
     final data = await api.post(
-      '/api/v1/customer/payments/verify',
+      '/api/v1/mover/payments/verify',
       headers: _auth(token),
       body: {'reference': reference},
     );

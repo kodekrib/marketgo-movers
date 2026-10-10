@@ -144,7 +144,6 @@ class AccountStore extends ChangeNotifier {
   List<FavouriteStore> _favStores = [];
   List<FavouriteProduct> _favProducts = [];
   bool _loaded = false;
-  bool _seeded = false;
 
   List<SavedAddress> get addresses => List.unmodifiable(_addresses);
   List<PaymentMethod> get cards => List.unmodifiable(_cards);
@@ -177,23 +176,6 @@ class AccountStore extends ChangeNotifier {
     _cards = _readList(prefs, _kCards, PaymentMethod.fromJson);
     _favStores = _readList(prefs, _kFavStores, FavouriteStore.fromJson);
     _favProducts = _readList(prefs, _kFavProducts, FavouriteProduct.fromJson);
-    if (_addresses.isEmpty && !_seeded) {
-      _seeded = true;
-      _addresses = const [
-        SavedAddress(
-          id: 'addr-home',
-          label: 'Home',
-          address: '2 Bode Thomas Street, Lekki',
-          isDefault: true,
-        ),
-        SavedAddress(
-          id: 'addr-work',
-          label: 'Work',
-          address: '14 Admiralty Way, Victoria Island',
-        ),
-      ];
-      await _persist(prefs, _kAddresses, _addresses);
-    }
     _loaded = true;
     notifyListeners();
   }
