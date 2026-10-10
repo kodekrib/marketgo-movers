@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app.dart';
 import '../services/auth_service.dart';
+import 'mfa_screen.dart';
 import 'otp_screen.dart';
 
 /// Login screen for the Movers customer app.
@@ -48,19 +49,30 @@ class _LoginScreenState extends State<LoginScreen> {
     if (ok) {
       widget.onAuthenticated?.call();
       Navigator.of(context).maybePop();
+    } else if (widget.auth.pendingMfa != null) {
+      _openMfa(email);
     }
   }
 
-  void _useDemo(String email) {
-    _emailController.text = email;
-    _passwordController.text = 'Customer@123';
-  }
-
-  void _signInTest() {
+  /// Opens the multi-factor code screen after a password sign-in that was
+  /// answered with a challenge. Navigation mirrors [_openOtp]: the login
+  /// screen stays underneath and pops once the code is accepted.
+  void _openMfa(String email) {
     FocusScope.of(context).unfocus();
-    widget.auth.enterDemoMode();
-    widget.onAuthenticated?.call();
-    Navigator.of(context).maybePop();
+    final loginNavigator = Navigator.of(context);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MfaScreen(
+          auth: widget.auth,
+          email: email,
+          onVerified: () {
+            widget.onAuthenticated?.call();
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => loginNavigator.maybePop());
+          },
+        ),
+      ),
+    );
   }
 
   /// Opens the phone/OTP sign-in flow. The OTP screen verifies the code with
@@ -169,75 +181,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             Text(
                               'Use your MarketGO customer account.',
                               style: theme.textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: MoversApp.brandOrangeLight,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: MoversApp.brandOrange.withOpacity(0.35),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.flash_on_rounded,
-                                      color: MoversApp.brandOrangeDark),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'No server? Explore the full app now',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 13,
-                                            color: MoversApp.brandOrangeDark,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Skips sign-in entirely for testing.',
-                                          style: TextStyle(
-                                            color: MoversApp.brandOrangeDark,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: _signInTest,
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: MoversApp.brandOrangeDark,
-                                    ),
-                                    child: const Text('Test mode'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Text('Demo account', style: theme.textTheme.bodySmall),
-                                const Spacer(),
-                                ActionChip(
-                                  avatar: Icon(Icons.bolt,
-                                      size: 16, color: MoversApp.brandOrange),
-                                  label: const Text('Customer'),
-                                  backgroundColor: MoversApp.brandOrangeLight,
-                                  side: BorderSide.none,
-                                  labelStyle: TextStyle(
-                                    color: MoversApp.brandOrangeDark,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  onPressed: () => _useDemo('customer@marketgo.com'),
-                                ),
-                              ],
                             ),
                             const SizedBox(height: 16),
                             TextField(
