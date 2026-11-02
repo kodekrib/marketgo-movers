@@ -44,8 +44,10 @@ class _MfaScreenState extends State<MfaScreen> {
   Future<void> _verify() async {
     FocusScope.of(context).unfocus();
     final code = _codeController.text.trim();
-    if (code.isEmpty) {
-      setState(() => _localError = 'Enter the one-time code to continue.');
+    final length = widget.auth.pendingMfa?.codeLength ?? 6;
+    if (widget.auth.loading) return;
+    if (code.length != length) {
+      setState(() => _localError = 'Enter the full $length-digit code.');
       return;
     }
     setState(() => _localError = null);
@@ -113,7 +115,8 @@ class _MfaScreenState extends State<MfaScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: MoversApp.brandOrangeLight,
-                        borderRadius: const BorderRadius.all(Radius.circular(16)),
+                        borderRadius:
+                            const BorderRadius.all(Radius.circular(16)),
                       ),
                       child: Row(
                         children: [
@@ -195,8 +198,7 @@ class _ErrorBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.error_outline,
-                color: Color(0xFFB3261E), size: 20),
+            const Icon(Icons.error_outline, color: Color(0xFFB3261E), size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
