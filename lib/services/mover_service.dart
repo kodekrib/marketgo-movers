@@ -131,10 +131,26 @@ class MoverService {
     throw const ApiException('Unexpected moving job payload');
   }
 
+  Future<List<MovingBid>> bids(String token, int id) async {
+    final data = await api.get('/api/v1/mover/moving-jobs/$id/bids',
+        headers: _auth(token));
+    return (data['bids'] as List? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(MovingBid.fromJson)
+        .toList();
+  }
+
+  Future<void> selectBid(String token, int id, MovingBid bid) async {
+    await api.post('/api/v1/mover/moving-jobs/$id/select-bid',
+        headers: _auth(token),
+        body: {'bid_id': bid.id, 'total_amount': bid.total});
+  }
+
   Future<void> cancel(String token, int id) async {
     await api.post(
       '/api/v1/mover/moving-jobs/$id/cancel',
       headers: _auth(token),
+      body: {'reason': 'Cancelled by customer'},
     );
   }
 }

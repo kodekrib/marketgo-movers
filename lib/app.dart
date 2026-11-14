@@ -1,16 +1,20 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'screens/home_screen.dart';
 import 'services/settings_service.dart';
+import 'widgets/branding_host.dart';
 
 /// MarketGO Movers — theme and app root.
 /// Visual identity: warm orange accent for the heavy-moving vertical.
 class MoversApp extends StatelessWidget {
   const MoversApp({super.key});
 
-  static Color brandOrange = const Color(0xFFEA580C);
-  static Color brandOrangeDark = const Color(0xFFC2410C);
-  static Color brandOrangeLight = const Color(0xFFFFEDD5);
+  // Fallbacks mirror the brand palette configured in the marketgo-admin panel.
+  // Values are refreshed at runtime from the public /api/v1/settings endpoint.
+  static Color brandOrange = const Color(0xFFE302A7);
+  static Color brandOrangeDark = const Color(0xFFC4039A);
+  static Color brandOrangeLight = const Color(0xFFF8E2F2);
   static const Color ink = Color(0xFF111418);
   static const Color inkSoft = Color(0xFF3A3F47);
   static const Color inkMuted = Color(0xFF5B616A);
@@ -18,23 +22,61 @@ class MoversApp extends StatelessWidget {
   static const Color surface = Color(0xFFFFFFFF);
   static const Color surfaceMuted = Color(0xFFF6F7F9);
   static String appName = 'MarketGO Movers';
-  static String fontFamily = 'Helvetica Neue';
+  static String fontFamily = 'Inter';
   static bool maintenanceMode = false;
   static String currencySymbol = '₦';
 
+  /// Font families offered in the marketgo-admin panel that map to Google Fonts.
+  static const List<String> _googleFonts = [
+    'Poppins',
+    'Inter',
+    'Nunito Sans',
+    'Lato',
+    'Open Sans',
+    'Roboto',
+  ];
+
+  /// Supported Google fonts use the admin selection. Empty/system selections
+  /// use the platform font without downloading a replacement.
+  static String get activeFontFamily =>
+      _googleFonts.contains(fontFamily) ? fontFamily : '';
+
+  /// [base] text theme with the active Google Font applied. The font is
+  /// downloaded and cached by the google_fonts package on first use.
+  static TextTheme applyFont(TextTheme base) {
+    if (activeFontFamily.isEmpty) return base;
+    switch (activeFontFamily) {
+      case 'Poppins':
+        return GoogleFonts.poppinsTextTheme(base);
+      case 'Nunito Sans':
+        return GoogleFonts.nunitoSansTextTheme(base);
+      case 'Lato':
+        return GoogleFonts.latoTextTheme(base);
+      case 'Open Sans':
+        return GoogleFonts.openSansTextTheme(base);
+      case 'Roboto':
+        return GoogleFonts.robotoTextTheme(base);
+      default:
+        return GoogleFonts.interTextTheme(base);
+    }
+  }
+
   /// Apply branding loaded from the admin-managed public settings.
   static void applyBranding(AppSettings s) {
-    if (s.brandColor != const Color(0xFFEA580C)) brandOrange = s.brandColor;
-    if (s.brandDarkColor != const Color(0xFFC2410C)) brandOrangeDark = s.brandDarkColor;
-    if (s.brandLightColor != const Color(0xFFFFEDD5)) brandOrangeLight = s.brandLightColor;
+    brandOrange = s.brandColor;
+    brandOrangeDark = s.brandDarkColor;
+    brandOrangeLight = s.brandLightColor;
     appName = s.appName;
-    if (s.fontFamily.isNotEmpty) fontFamily = s.fontFamily;
+    fontFamily = s.fontFamily;
     if (s.currencySymbol.isNotEmpty) currencySymbol = s.currencySymbol;
     maintenanceMode = s.maintenanceMode;
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      BrandingHost(apply: applyBranding, builder: _buildApp);
+
+  Widget _buildApp(BuildContext context) {
     final base = ThemeData.light().colorScheme;
     final colorScheme = base.copyWith(
       primary: brandOrange,
@@ -54,34 +96,63 @@ class MoversApp extends StatelessWidget {
 
     final theme = ThemeData(
       useMaterial3: true,
+      extensions: [BrandingIdentity(appName)],
       colorScheme: colorScheme,
       scaffoldBackgroundColor: surfaceMuted,
-      fontFamily: fontFamily,
-      textTheme: const TextTheme(
-        displaySmall: TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: ink, letterSpacing: -0.6, height: 1.06),
-        headlineMedium: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: ink, letterSpacing: -0.5, height: 1.15),
-        headlineSmall: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink, letterSpacing: -0.3),
-        titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: ink, letterSpacing: -0.2),
-        titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ink),
+      fontFamily: activeFontFamily,
+      textTheme: applyFont(const TextTheme(
+        displaySmall: TextStyle(
+            fontSize: 36,
+            fontWeight: FontWeight.w900,
+            color: ink,
+            letterSpacing: -0.6,
+            height: 1.06),
+        headlineMedium: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            color: ink,
+            letterSpacing: -0.5,
+            height: 1.15),
+        headlineSmall: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: ink,
+            letterSpacing: -0.3),
+        titleLarge: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: ink,
+            letterSpacing: -0.2),
+        titleMedium:
+            TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ink),
         bodyLarge: TextStyle(fontSize: 16, color: inkSoft, height: 1.45),
         bodyMedium: TextStyle(fontSize: 14, color: inkMuted, height: 1.4),
-        labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.1),
-      ),
+        labelLarge: TextStyle(
+            fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.1),
+      )),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: ink, letterSpacing: -0.2),
+        titleTextStyle: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: ink,
+            letterSpacing: -0.2),
         iconTheme: IconThemeData(color: ink),
       ),
-      dividerTheme: const DividerThemeData(color: Color(0xFFEEF0F3), thickness: 1, space: 1),
+      dividerTheme: const DividerThemeData(
+          color: Color(0xFFEEF0F3), thickness: 1, space: 1),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        labelStyle: const TextStyle(color: Color(0xFF5B616A), fontWeight: FontWeight.w600),
-        hintStyle: const TextStyle(color: Color(0xFF9AA1AA), fontWeight: FontWeight.w500),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        labelStyle: const TextStyle(
+            color: Color(0xFF5B616A), fontWeight: FontWeight.w600),
+        hintStyle: const TextStyle(
+            color: Color(0xFF9AA1AA), fontWeight: FontWeight.w500),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: Color(0xFFE2E5EA), width: 1.2),
@@ -91,7 +162,7 @@ class MoversApp extends StatelessWidget {
           borderSide: const BorderSide(color: Color(0xFFE2E5EA), width: 1.2),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
+          borderRadius: const BorderRadius.all(Radius.circular(16)),
           borderSide: BorderSide(color: brandOrange, width: 1.8),
         ),
         errorBorder: OutlineInputBorder(
@@ -105,8 +176,10 @@ class MoversApp extends StatelessWidget {
           foregroundColor: Colors.white,
           elevation: 0,
           minimumSize: const Size.fromHeight(54),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          textStyle: const TextStyle(
+              fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.2),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -115,8 +188,10 @@ class MoversApp extends StatelessWidget {
           foregroundColor: Colors.white,
           elevation: 0,
           minimumSize: const Size.fromHeight(54),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          textStyle: const TextStyle(
+              fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.2),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -124,7 +199,8 @@ class MoversApp extends StatelessWidget {
           foregroundColor: ink,
           side: const BorderSide(color: Color(0xFFE2E5EA)),
           minimumSize: const Size(0, 48),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
@@ -134,7 +210,8 @@ class MoversApp extends StatelessWidget {
       title: appName,
       debugShowCheckedModeBanner: false,
       theme: theme,
-      builder: (context, child) => MaintenanceGate(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) =>
+          MaintenanceGate(child: child ?? const SizedBox.shrink()),
       home: const HomeScreen(),
     );
   }

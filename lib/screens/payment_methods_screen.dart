@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app.dart';
 import '../services/account_store.dart';
+import '../widgets/movers_app_bar.dart';
 
 /// Saved payment methods (stored locally on the device).
 class PaymentMethodsScreen extends StatelessWidget {
@@ -11,11 +13,7 @@ class PaymentMethodsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF9),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF8FAF9),
-        surfaceTintColor: Colors.transparent,
-        title: const Text('Payment methods'),
-      ),
+      appBar: const MoversAppBar(title: 'Payment methods'),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openEditor(context),
         backgroundColor: MoversApp.brandOrange,
@@ -75,7 +73,8 @@ class PaymentMethodsScreen extends StatelessWidget {
                             children: [
                               Text('${c.brand} •••• ${c.last4}',
                                   style: const TextStyle(
-                                      fontWeight: FontWeight.w700, fontSize: 15)),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15)),
                               if (isDefault) ...[
                                 const SizedBox(width: 6),
                                 Container(
@@ -126,71 +125,155 @@ class PaymentMethodsScreen extends StatelessWidget {
   }
 
   void _openEditor(BuildContext context) {
-    final brandCtrl = TextEditingController();
-    final numberCtrl = TextEditingController();
-    final expiryCtrl = TextEditingController();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-            24,
-            24,
-            24,
-            MediaQuery.of(ctx).viewInsets.bottom + 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Add payment method',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: brandCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Card type', hintText: 'Visa, Mastercard…'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: numberCtrl,
-              keyboardType: TextInputType.number,
-              maxLength: 16,
-              decoration: const InputDecoration(
-                  labelText: 'Card number',
-                  hintText: '•••• •••• •••• ••••'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: expiryCtrl,
-              decoration:
-                  const InputDecoration(labelText: 'Expiry', hintText: 'MM/YY'),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                final number = numberCtrl.text.trim();
-                if (brandCtrl.text.trim().isEmpty || number.length < 4) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('Enter card type and number.')),
-                  );
-                  return;
-                }
-                AccountStore.instance.addCard(
-                  brandCtrl.text.trim().toUpperCase(),
-                  number,
-                  expiryCtrl.text.trim().isEmpty
-                      ? '—'
-                      : expiryCtrl.text.trim(),
-                );
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('Save card'),
-            ),
-          ],
-        ),
+      builder: (_) => const _CardEditorSheet(),
+    );
+  }
+}
+
+/// Card brands offered when adding a payment method.
+const List<String> _cardTypes = [
+  'Visa',
+  'Mastercard',
+  'Verve',
+  'American Express',
+  'Discover',
+];
+
+/// Bottom sheet that collects a new card, with a brand dropdown, a card number
+/// grouped as `xxxx xxxx xxxx xxxx`, and an `MM/YY` expiry.
+class _CardEditorSheet extends StatefulWidget {
+  const _CardEditorSheet();
+
+  @override
+  State<_CardEditorSheet> createState() => _CardEditorSheetState();
+}
+
+class _CardEditorSheetState extends State<_CardEditorSheet> {
+  final _numberCtrl = TextEditingController();
+  final _expiryCtrl = TextEditingController();
+  String _cardType = _cardTypes.first;
+
+  @override
+  void dispose() {
+    _numberCtrl.dispose();
+    _expiryCtrl.dispose();
+    super.dispose();
+  }
+
+  String get _numberDigits => _numberCtrl.text.replaceAll(RegExp(r'\D'), '');
+  String get _expiryDigits => _expiryCtrl.text.replaceAll(RegExp(r'\D'), '');
+
+  void _save() {
+    final digits = _numberDigits;
+    if (digits.length != 16) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Enter a valid 16-digit card number.'),
+          behavior: SnackBarBehavior.floating));
+      return;
+    }
+    final expiryDigits = _expiryDigits;
+    final month =
+        expiryDigits.length == 4 ? int.parse(expiryDigits.substring(0, 2)) : 0;
+    if (expiryDigits.length != 4 || month < 1 || month > 12) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Enter a valid expiry date in MM/YY format.'),
+          behavior: SnackBarBehavior.floating));
+      return;
+    }
+    AccountStore.instance.addCard(_cardType, digits, _expiryCtrl.text.trim());
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Add payment method',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _cardType,
+            decoration: const InputDecoration(labelText: 'Card type'),
+            items: [
+              for (final type in _cardTypes)
+                DropdownMenuItem(value: type, child: Text(type)),
+            ],
+            onChanged: (value) =>
+                setState(() => _cardType = value ?? _cardType),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _numberCtrl,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(16),
+              _CardNumberFormatter(),
+            ],
+            decoration: const InputDecoration(
+                labelText: 'Card number', hintText: '•••• •••• •••• ••••'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _expiryCtrl,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(4),
+              _ExpiryDateFormatter(),
+            ],
+            decoration:
+                const InputDecoration(labelText: 'Expiry', hintText: 'MM/YY'),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(onPressed: _save, child: const Text('Save card')),
+        ],
       ),
+    );
+  }
+}
+
+/// Groups a card number into blocks of four digits (`xxxx xxxx xxxx xxxx`).
+class _CardNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final buffer = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      if (i > 0 && i % 4 == 0) buffer.write(' ');
+      buffer.write(digits[i]);
+    }
+    final text = buffer.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+}
+
+/// Formats a card expiry as `MM/YY` while the user types.
+class _ExpiryDateFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final text = digits.length <= 2
+        ? digits
+        : '${digits.substring(0, 2)}/${digits.substring(2)}';
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
     );
   }
 }

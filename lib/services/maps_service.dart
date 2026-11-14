@@ -74,6 +74,15 @@ class MapsService {
   MapsService({ApiClient? api}) : api = api ?? ApiClient();
 
   final ApiClient api;
+  Future<PlaceSuggestion> reverse(double latitude, double longitude) async {
+    final query = Uri(queryParameters: {
+      'latitude': '$latitude',
+      'longitude': '$longitude'
+    }).query;
+    final data = await api.get('/api/v1/maps/reverse?$query');
+    return PlaceSuggestion.fromJson(
+        Map<String, dynamic>.from(data['place'] as Map));
+  }
 
   Future<MapConfig> fetchConfig() async {
     try {

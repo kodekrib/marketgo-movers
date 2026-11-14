@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../services/maps_service.dart';
 import 'map_preview.dart';
@@ -27,6 +28,7 @@ class PlaceSearchField extends StatefulWidget {
     this.onLocationChanged,
     this.service,
     this.height = 160,
+    this.initialLocation,
   });
 
   final TextEditingController? controller;
@@ -41,6 +43,7 @@ class PlaceSearchField extends StatefulWidget {
   final ValueChanged<PlaceSuggestion?>? onLocationChanged;
   final MapsService? service;
   final double height;
+  final PlaceSuggestion? initialLocation;
 
   @override
   State<PlaceSearchField> createState() => _PlaceSearchFieldState();
@@ -54,6 +57,8 @@ class _PlaceSearchFieldState extends State<PlaceSearchField> {
   Timer? _debounce;
   List<PlaceSuggestion> _suggestions = const [];
   bool _searching = false;
+  bool _locating = false;
+  int _editRevision = 0;
   bool _open = false;
   bool _configLoaded = false;
   MapConfig _config = const MapConfig();
@@ -65,11 +70,15 @@ class _PlaceSearchFieldState extends State<PlaceSearchField> {
     _service = widget.service ?? MapsService();
     _controller = widget.controller ?? TextEditingController();
     _focusNode = FocusNode();
+    _controller.addListener(_controllerEdited);
+    _pick = widget.initialLocation;
+    if (_pick != null) _ensureConfig();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _controller.removeListener(_controllerEdited);
     _focusNode.dispose();
     if (widget.controller == null) _controller.dispose();
     super.dispose();
@@ -84,11 +93,63 @@ class _PlaceSearchFieldState extends State<PlaceSearchField> {
     }
   }
 
-  void _onFieldChanged(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
+  void _controllerEdited() {
+    if (_pick != null && _controller.text != _pick!.label) {
+      _editRevision++;
       _clearPick();
     }
+  }
+
+  Future<void> _useLocation() async {
+    if (_locating) return;
+    final revision = ++_editRevision;
+    _debounce?.cancel();
+    setState(() => _locating = true);
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw StateError('Location is off');
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        throw StateError('Location permission denied');
+      }
+      final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 20));
+      await _ensureConfig();
+      PlaceSuggestion place;
+      try {
+        place = await _service.reverse(position.latitude, position.longitude);
+      } catch (_) {
+        place = PlaceSuggestion(
+            placeId: 'gps',
+            label:
+                'Current location: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}',
+            secondary: '',
+            latitude: position.latitude,
+            longitude: position.longitude);
+      }
+      if (!mounted || revision != _editRevision) return;
+      _select(place);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Could not get your location. Check location permissions or enter the address manually.')));
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  void _onFieldChanged(String value) {
+    final trimmed = value.trim();
+    _editRevision++;
+    if (_pick != null && trimmed != _pick!.label) _clearPick();
     _search(immediate: false);
   }
 
@@ -148,6 +209,18 @@ class _PlaceSearchFieldState extends State<PlaceSearchField> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildField(),
+        Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+                onPressed: _locating ? null : _useLocation,
+                icon: _locating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.my_location),
+                label: Text(
+                    _locating ? 'Finding location…' : 'Use phone location'))),
         if (_searching)
           const Padding(
             padding: EdgeInsets.only(top: 10),
@@ -165,6 +238,7 @@ class _PlaceSearchFieldState extends State<PlaceSearchField> {
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: MapPreview(
+              key: ValueKey('${_pick!.latitude}:${_pick!.longitude}'),
               config: _config,
               latitude: _pick!.latitude,
               longitude: _pick!.longitude,
@@ -218,8 +292,8 @@ class _PlaceSearchFieldState extends State<PlaceSearchField> {
             InkWell(
               onTap: () => _select(s),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 child: Row(
                   children: [
                     Icon(

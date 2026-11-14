@@ -1,3 +1,5 @@
+import '../widgets/profile_photo.dart';
+import 'app_info_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../app.dart';
@@ -30,6 +32,13 @@ class AccountTab extends StatelessWidget {
       return AppScrollTab(
         slivers: [
           const SliverToBoxAdapter(child: PageHeader('Account')),
+          SliverToBoxAdapter(
+              child: ListTile(
+                  leading: const Icon(Icons.info_outline_rounded),
+                  title: const Text('App Info'),
+                  onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                          builder: (_) => const AppInfoScreen())))),
           SliverFillRemaining(
             hasScrollBody: false,
             child: Center(
@@ -78,50 +87,57 @@ class AccountTab extends StatelessWidget {
         Icons.receipt_long_rounded,
         'My moves',
         () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => Scaffold(
-              body: MyMovesTab(auth: auth, movers: movers),
+              MaterialPageRoute<void>(
+                builder: (_) => Scaffold(
+                  body: MyMovesTab(auth: auth, movers: movers),
+                ),
+              ),
             ),
-          ),
-        ),
         const Color(0xFF2563EB),
       ),
       (
         Icons.location_on_rounded,
         'Delivery addresses',
         () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const DeliveryAddressesScreen(),
-          ),
-        ),
+              MaterialPageRoute<void>(
+                builder: (_) => const DeliveryAddressesScreen(),
+              ),
+            ),
         const Color(0xFFEA580C),
       ),
       (
         Icons.credit_card_rounded,
         'Payment methods',
         () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const PaymentMethodsScreen(),
-          ),
-        ),
+              MaterialPageRoute<void>(
+                builder: (_) => const PaymentMethodsScreen(),
+              ),
+            ),
         const Color(0xFF7C3AED),
       ),
       (
         Icons.favorite_border_rounded,
         'Favourites',
         () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const FavouritesScreen(),
-          ),
-        ),
+              MaterialPageRoute<void>(
+                builder: (_) => const FavouritesScreen(),
+              ),
+            ),
         const Color(0xFFDB2777),
+      ),
+      (
+        Icons.info_outline_rounded,
+        'App Info',
+        () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const AppInfoScreen())),
+        const Color(0xFF2563EB)
       ),
       (
         Icons.help_outline_rounded,
         'Help & FAQ',
         () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const FaqScreen()),
-        ),
+              MaterialPageRoute<void>(builder: (_) => const FaqScreen()),
+            ),
         const Color(0xFF16A34A),
       ),
     ];
@@ -142,8 +158,14 @@ class AccountTab extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(26),
                 boxShadow: const [
-                  BoxShadow(color: Color(0x33000000), blurRadius: 26, offset: Offset(0, 12)),
-                  BoxShadow(color: Color(0x26000000), blurRadius: 8, offset: Offset(0, 4)),
+                  BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 26,
+                      offset: Offset(0, 12)),
+                  BoxShadow(
+                      color: Color(0x26000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 4)),
                 ],
               ),
               child: Stack(
@@ -162,22 +184,16 @@ class AccountTab extends StatelessWidget {
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white.withOpacity(0.18)),
+                          border:
+                              Border.all(color: Colors.white.withOpacity(0.18)),
                         ),
-                        child: CircleAvatar(
-                          radius: 34,
-                          backgroundColor: MoversApp.brandOrangeLight,
-                          child: Text(
-                            user.firstName.isNotEmpty
-                                ? user.firstName[0].toUpperCase()
-                                : 'U',
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              color: MoversApp.brandOrangeDark,
-                            ),
-                          ),
-                        ),
+                        child: ProfilePhoto(
+                            api: auth.api,
+                            tokenProvider: () => auth.accessToken,
+                            avatarUrl: user.avatarUrl,
+                            name: user.name,
+                            onUpdated: auth.refreshProfile,
+                            radius: 34),
                       ),
                       const SizedBox(height: 14),
                       Text(user.name,
@@ -189,7 +205,8 @@ class AccountTab extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(user.email,
                           style: TextStyle(
-                              fontSize: 13, color: Colors.white.withOpacity(0.55))),
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.55))),
                     ],
                   ),
                 ],
@@ -204,7 +221,8 @@ class AccountTab extends StatelessWidget {
               children: List.generate(menu.length, (index) {
                 final (icon, label, onTap, color) = menu[index];
                 return Padding(
-                  padding: EdgeInsets.only(bottom: index < menu.length - 1 ? 10 : 0),
+                  padding:
+                      EdgeInsets.only(bottom: index < menu.length - 1 ? 10 : 0),
                   child: Material(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(18),

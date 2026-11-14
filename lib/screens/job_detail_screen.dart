@@ -1,3 +1,5 @@
+import 'dart:async';
+import '../widgets/trip_route_map.dart';
 import 'package:flutter/material.dart';
 
 import '../app.dart';
@@ -6,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/mover_service.dart';
 import '../services/payment_service.dart';
 import '../widgets/common.dart';
+import '../widgets/movers_app_bar.dart';
 import 'payment_webview_screen.dart';
 
 /// Full detail view of a moving job with a status timeline and fee breakdown.
@@ -34,6 +37,10 @@ class JobDetailScreen extends StatefulWidget {
 class _JobDetailScreenState extends State<JobDetailScreen> {
   late MovingJob _job;
   bool _cancelling = false;
+  List<MovingBid> _bids = [];
+  Timer? _refresh;
+  bool _refreshing = false, _selecting = false;
+  String _sort = 'price';
   bool _paying = false;
   String? _error;
 
@@ -41,6 +48,117 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   void initState() {
     super.initState();
     _job = widget.job;
+    if (!widget.readOnly) {
+      _refreshJob();
+      _refresh =
+          Timer.periodic(const Duration(seconds: 10), (_) => _refreshJob());
+    }
+  }
+
+  @override
+  void dispose() {
+    _refresh?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshJob() async {
+    final token = widget.auth?.accessToken, service = widget.movers;
+    if (token == null || service == null || _refreshing) return;
+    _refreshing = true;
+    try {
+      final job = await service.job(token, _job.id);
+      final bids = job.status == MovingJobStatus.pending
+          ? await service.bids(token, _job.id)
+          : <MovingBid>[];
+      if (mounted) {
+        setState(() {
+          _job = job;
+          _bids = bids;
+        });
+      }
+    } catch (_) {/* Keep visible state and retry. */} finally {
+      _refreshing = false;
+    }
+  }
+
+  Future<void> _select(MovingBid bid) async {
+    final token = widget.auth?.accessToken, service = widget.movers;
+    if (token == null || service == null || _selecting) return;
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+                title: Text('Select ${bid.riderName}?'),
+                content: Text(
+                    'Agreed total: ${MoversApp.currencySymbol}${bid.total.toStringAsFixed(2)}. This includes the rider, extra packers and platform fee.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Back')),
+                  ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Select rider'))
+                ]));
+    if (confirmed != true || !mounted) return;
+    setState(() => _selecting = true);
+    try {
+      await service.selectBid(token, _job.id, bid);
+      await _refreshJob();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'This bid changed or the rider is unavailable. Refresh and choose again.')));
+      }
+      await _refreshJob();
+    } finally {
+      if (mounted) setState(() => _selecting = false);
+    }
+  }
+
+  Widget _bidList() {
+    final bids = [..._bids]..sort((a, b) => _sort == 'distance'
+        ? (a.distanceKM ?? double.infinity)
+            .compareTo(b.distanceKM ?? double.infinity)
+        : a.total.compareTo(b.total));
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        const Expanded(
+            child: Text('Rider bids',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+        DropdownButton<String>(
+            value: _sort,
+            items: const [
+              DropdownMenuItem(value: 'price', child: Text('Cheapest')),
+              DropdownMenuItem(value: 'distance', child: Text('Closest'))
+            ],
+            onChanged: (value) => setState(() => _sort = value ?? 'price'))
+      ]),
+      if (bids.isEmpty)
+        const Text(
+            'Waiting for matching riders to send their prices. Bids refresh automatically.'),
+      for (final bid in bids)
+        Card(
+            child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(bid.riderName,
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(bid.distanceKM == null
+                          ? 'Current distance unavailable'
+                          : '${bid.distanceKM!.toStringAsFixed(1)} km to pickup'),
+                      Text(
+                          'Rider: ${MoversApp.currencySymbol}${bid.price.toStringAsFixed(2)} · Packers: ${MoversApp.currencySymbol}${bid.packerFee.toStringAsFixed(2)}'),
+                      Text(
+                          'Platform fee: ${MoversApp.currencySymbol}${bid.platformFee.toStringAsFixed(2)}'),
+                      Text(
+                          'Total: ${MoversApp.currencySymbol}${bid.total.toStringAsFixed(2)}'),
+                      ElevatedButton(
+                          onPressed: _selecting ? null : () => _select(bid),
+                          child: const Text('Select this rider'))
+                    ]))),
+    ]);
   }
 
   Future<void> _pay() async {
@@ -234,12 +352,19 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Move #${_job.id}')),
+      appBar: MoversAppBar(title: 'Move #${_job.id}'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            TripRouteMap(
+                from: _job.pickupAddress,
+                to: _job.deliveryAddress,
+                fromLat: _job.pickupLat,
+                fromLng: _job.pickupLng,
+                toLat: _job.deliveryLat,
+                toLng: _job.deliveryLng),
             Row(
               children: [
                 Expanded(
@@ -255,6 +380,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   style: Theme.of(context).textTheme.bodyMedium),
             ],
             const SizedBox(height: 20),
+            if (!widget.readOnly && _job.status == MovingJobStatus.pending)
+              _bidList(),
             _Timeline(status: _job.status),
             const SizedBox(height: 20),
             Row(
@@ -284,7 +411,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             _InfoRow(label: 'Items', value: '${_job.itemCount}'),
             _InfoRow(
               label: 'Extra packers',
-              value: '${_job.extraPackers}${_job.extraPackers > 0 ? ' × ${formatPrice(_job.packerPrice)}' : ''}',
+              value:
+                  '${_job.extraPackers}${_job.extraPackers > 0 ? ' × ${formatPrice(_job.packerPrice)}' : ''}',
             ),
             if (_job.quotedPrice > 0) ...[
               const SizedBox(height: 16),
@@ -293,14 +421,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             if (_job.isPaid && _job.quotedPrice > 0) ...[
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE7F6EC),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.verified_rounded, color: Color(0xFF15803D), size: 20),
+                    Icon(Icons.verified_rounded,
+                        color: Color(0xFF15803D), size: 20),
                     SizedBox(width: 10),
                     Text('Payment received',
                         style: TextStyle(
@@ -363,7 +493,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!,
-                  style: const TextStyle(color: Color(0xFFB3261E), fontSize: 13)),
+                  style:
+                      const TextStyle(color: Color(0xFFB3261E), fontSize: 13)),
             ],
           ],
         ),
@@ -420,14 +551,15 @@ class _Timeline extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 13,
-                  backgroundColor: done
-                      ? MoversApp.brandOrange
-                      : const Color(0xFFE2E5EA),
+                  backgroundColor:
+                      done ? MoversApp.brandOrange : const Color(0xFFE2E5EA),
                   child: done
-                      ? Icon(index == current
-                          ? Icons.radio_button_checked
-                          : Icons.check,
-                          size: 16, color: Colors.white)
+                      ? Icon(
+                          index == current
+                              ? Icons.radio_button_checked
+                              : Icons.check,
+                          size: 16,
+                          color: Colors.white)
                       : const Icon(Icons.radio_button_unchecked,
                           size: 16, color: Color(0xFFC9CDD4)),
                 ),
@@ -493,8 +625,8 @@ class _AddressCard extends StatelessWidget {
               style: const TextStyle(fontSize: 11, color: Color(0xFF9AA1AA))),
           const SizedBox(height: 2),
           Text(address,
-              style: const TextStyle(
-                  fontSize: 12.5, fontWeight: FontWeight.w600)),
+              style:
+                  const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -517,8 +649,7 @@ class _InfoRow extends StatelessWidget {
           SizedBox(
             width: 110,
             child: Text(label,
-                style: const TextStyle(
-                    fontSize: 13, color: Color(0xFF6B7280))),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
           ),
           Expanded(
             child: Text(value,
@@ -548,7 +679,8 @@ class _FareBreakdown extends StatelessWidget {
         children: [
           _line('Mover quote', formatPrice(job.quotedPrice)),
           if (job.totalPackerFee > 0)
-            _line('Packers (${job.extraPackers})', formatPrice(job.totalPackerFee)),
+            _line('Packers (${job.extraPackers})',
+                formatPrice(job.totalPackerFee)),
           _line('Platform fee', formatPrice(job.platformFee)),
           const Divider(height: 18),
           Row(
@@ -575,8 +707,8 @@ class _FareBreakdown extends StatelessWidget {
               style: const TextStyle(fontSize: 13, color: Color(0xFF5B616A))),
           const Spacer(),
           Text(amount,
-              style: const TextStyle(
-                  fontSize: 13.5, fontWeight: FontWeight.w700)),
+              style:
+                  const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
         ],
       ),
     );

@@ -291,3 +291,26 @@ class TripQuote {
     );
   }
 }
+
+class MovingBid {
+  const MovingBid(
+      {required this.id,
+      required this.riderName,
+      required this.price,
+      required this.packerFee,
+      required this.platformFee,
+      required this.total,
+      this.distanceKM});
+  final int id;
+  final String riderName;
+  final double price, packerFee, platformFee, total;
+  final double? distanceKM;
+  factory MovingBid.fromJson(Map<String, dynamic> json) => MovingBid(
+      id: (json['id'] as num).toInt(),
+      riderName: json['rider_name'] as String? ?? 'Rider',
+      price: (json['price'] as num).toDouble(),
+      packerFee: (json['total_packer_fee'] as num).toDouble(),
+      platformFee: (json['platform_fee'] as num).toDouble(),
+      total: (json['total_amount'] as num).toDouble(),
+      distanceKM: (json['distance_km'] as num?)?.toDouble());
+}

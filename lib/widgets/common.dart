@@ -85,7 +85,8 @@ class PageHeader extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(title, style: Theme.of(context).textTheme.headlineMedium),
+            child:
+                Text(title, style: Theme.of(context).textTheme.headlineMedium),
           ),
           if (trailing != null) trailing!,
         ],

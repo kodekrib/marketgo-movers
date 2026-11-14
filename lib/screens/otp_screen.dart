@@ -8,7 +8,8 @@ import '../services/auth_service.dart';
 /// Phone/OTP sign-in screen used by the "Phone" option on login.
 ///
 /// Two steps: request a code against a Nigerian phone number, then enter the
-/// configured-length code. Phone codes are delivered over WhatsApp.
+/// configured-length code. Phone codes are delivered over WhatsApp or SMS
+/// (Termii) depending on which channel the server used.
 /// When developer preview is enabled the code is shown on the card.
 class OtpScreen extends StatefulWidget {
   const OtpScreen(
@@ -36,6 +37,7 @@ class _OtpScreenState extends State<OtpScreen> {
   String? _error;
   String? _devCode;
   String _phone = '';
+  List<String> _channels = const [];
 
   @override
   void dispose() {
@@ -62,6 +64,13 @@ class _OtpScreenState extends State<OtpScreen> {
 
   bool get _canResend => _sent && _secondsLeft == 0;
 
+  /// "via WhatsApp", "via SMS", … — defaults to WhatsApp when the server did
+  /// not report a channel.
+  String get _sentVia {
+    final label = describeOtpChannels(_channels);
+    return 'via ${label.isEmpty ? 'WhatsApp' : label}';
+  }
+
   Future<void> _sendCode() async {
     FocusScope.of(context).unfocus();
     final phone = _phoneController.text.trim();
@@ -82,6 +91,7 @@ class _OtpScreenState extends State<OtpScreen> {
         _sent = true;
         _phone = normalized;
         _devCode = result.devCode;
+        _channels = result.channels;
         _digits = List.filled(result.codeLength, '');
         _codeController.clear();
       });
@@ -188,7 +198,7 @@ class _OtpScreenState extends State<OtpScreen> {
             const SizedBox(height: 6),
             Text(
               _sent
-                  ? 'We sent a ${_digits.length}-digit code to $_phone via WhatsApp.'
+                  ? 'We sent a ${_digits.length}-digit code to $_phone $_sentVia.'
                   : 'We\'ll send you a one-time code to sign in quickly.',
               style: theme.textTheme.bodyMedium,
             ),
@@ -228,13 +238,13 @@ class _OtpScreenState extends State<OtpScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: MoversApp.brandOrangeLight,
-                  borderRadius: BorderRadius.all(Radius.circular(16)),
+                  borderRadius: const BorderRadius.all(Radius.circular(16)),
                 ),
                 child: Row(
                   children: [
                     Icon(Icons.info_outline,
                         size: 20, color: MoversApp.brandOrangeDark),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         _devCode != null && _devCode!.isNotEmpty

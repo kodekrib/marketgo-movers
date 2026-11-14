@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../widgets/movers_app_bar.dart';
+
 /// Opens the payment gateway's authorization URL in a WebView.
 /// When the user completes payment, the gateway redirects to a callback URL.
 /// Success/failure is detected by monitoring URL changes.
@@ -59,7 +61,8 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
     }
     // Flutterwave
     return lower.contains('flutterwave') &&
-        (lower.contains('status=successful') || lower.contains('status=success'));
+        (lower.contains('status=successful') ||
+            lower.contains('status=success'));
   }
 
   bool _isFailureUrl(String url) {
@@ -74,18 +77,14 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Pay with ${widget.gateway == 'paystack' ? 'Paystack' : 'Flutterwave'}'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(false),
-        ),
+      appBar: MoversAppBar(
+        title:
+            'Pay with ${widget.gateway == 'paystack' ? 'Paystack' : 'Flutterwave'}',
       ),
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
-          if (_loading)
-            const Center(child: CircularProgressIndicator()),
+          if (_loading) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );

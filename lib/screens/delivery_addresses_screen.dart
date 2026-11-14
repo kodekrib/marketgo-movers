@@ -1,7 +1,10 @@
+import '../services/maps_service.dart';
+import '../widgets/place_search_field.dart';
 import 'package:flutter/material.dart';
 
 import '../app.dart';
 import '../services/account_store.dart';
+import '../widgets/movers_app_bar.dart';
 
 /// Manage saved delivery addresses (stored locally on the device).
 class DeliveryAddressesScreen extends StatelessWidget {
@@ -11,11 +14,7 @@ class DeliveryAddressesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF9),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF8FAF9),
-        surfaceTintColor: Colors.transparent,
-        title: const Text('Delivery addresses'),
-      ),
+      appBar: const MoversAppBar(title: 'Delivery addresses'),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openEditor(context),
         backgroundColor: MoversApp.brandOrange,
@@ -75,7 +74,8 @@ class DeliveryAddressesScreen extends StatelessWidget {
                             children: [
                               Text(a.label,
                                   style: const TextStyle(
-                                      fontWeight: FontWeight.w700, fontSize: 15)),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15)),
                               if (isDefault) ...[
                                 const SizedBox(width: 6),
                                 Container(
@@ -128,17 +128,16 @@ class DeliveryAddressesScreen extends StatelessWidget {
   void _openEditor(BuildContext context) {
     final labelCtrl = TextEditingController();
     final addressCtrl = TextEditingController();
+    PlaceSuggestion? picked;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => Padding(
+      builder: (ctx) => SingleChildScrollView(
+          child: Padding(
         padding: EdgeInsets.fromLTRB(
-            24,
-            24,
-            24,
-            MediaQuery.of(ctx).viewInsets.bottom + 24),
+            24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -152,24 +151,27 @@ class DeliveryAddressesScreen extends StatelessWidget {
                   labelText: 'Label', hintText: 'Home, Work…'),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: addressCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Address', hintText: 'Street, area, city'),
-            ),
+            PlaceSearchField(
+                controller: addressCtrl,
+                labelText: 'Address',
+                hintText: 'Street, area, city',
+                onLocationChanged: (p) => picked = p),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 if (labelCtrl.text.trim().isEmpty ||
                     addressCtrl.text.trim().isEmpty) {
                   ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('Add a label and an address.')),
+                    const SnackBar(
+                        content: Text('Add a label and an address.')),
                   );
                   return;
                 }
                 AccountStore.instance.addAddress(
                   labelCtrl.text.trim(),
                   addressCtrl.text.trim(),
+                  latitude: picked?.latitude,
+                  longitude: picked?.longitude,
                 );
                 Navigator.of(ctx).pop();
               },
@@ -177,7 +179,7 @@ class DeliveryAddressesScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

@@ -5,7 +5,10 @@ import '../models/moving.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/mover_service.dart';
+import '../widgets/animated_3d.dart';
 import '../widgets/common.dart';
+import '../widgets/movers_app_bar.dart';
+import '../widgets/skeuo.dart';
 import 'account_screen.dart';
 import 'book_move_screen.dart';
 import 'faq_screen.dart';
@@ -30,11 +33,14 @@ class _HomeScreenState extends State<HomeScreen> {
   late final MoverService _movers;
   int _tabIndex = 0;
 
+  static const _tabTitles = ['Home', 'Activity', 'Account'];
+
   @override
   void initState() {
     super.initState();
     _api = ApiClient();
     _auth = AuthModel(api: _api);
+    MoversSession.instance = _auth;
     _movers = MoverService(api: _api);
     _auth.restoreSession();
   }
@@ -51,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
       listenable: _auth,
       builder: (context, _) {
         return Scaffold(
+          appBar: MoversAppBar(title: _tabTitles[_tabIndex]),
           body: _buildTab(_tabIndex),
           bottomNavigationBar: _MoversNav(
             currentIndex: _tabIndex,
@@ -105,47 +112,58 @@ class _MoversNav extends StatelessWidget {
     ];
 
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: Color(0xFFEDEFF2))),
+        boxShadow: [
+          BoxShadow(
+              color: Color(0x14000000), blurRadius: 20, offset: Offset(0, -6)),
+        ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: List.generate(items.length, (index) {
-          final (icon, label) = items[index];
-          final selected = index == currentIndex;
-          final color = selected ? Colors.white : const Color(0xFF9AA1AA);
-          return Expanded(
-            child: InkWell(
-              onTap: () => onTap(index),
-              borderRadius: BorderRadius.circular(999),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                decoration: BoxDecoration(
-                  color: selected ? MoversApp.brandOrange : Colors.transparent,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: List.generate(items.length, (index) {
+              final (icon, label) = items[index];
+              final selected = index == currentIndex;
+              final color = selected ? Colors.white : const Color(0xFF9AA1AA);
+              return Expanded(
+                child: InkWell(
+                  onTap: () => onTap(index),
                   borderRadius: BorderRadius.circular(999),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, color: color, size: 22),
-                    const SizedBox(height: 3),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight:
-                            selected ? FontWeight.w800 : FontWeight.w500,
-                        color: color,
-                      ),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    decoration: BoxDecoration(
+                      color:
+                          selected ? MoversApp.brandOrange : Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
                     ),
-                  ],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, color: color, size: 22),
+                        const SizedBox(height: 3),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight:
+                                selected ? FontWeight.w800 : FontWeight.w500,
+                            color: color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        }),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }
@@ -210,8 +228,9 @@ class _BookTabState extends State<BookTab> {
     try {
       final jobs = await widget.movers.jobs(token);
       final live = jobs.where((j) => j.isActive).toList();
-      if (mounted)
+      if (mounted) {
         setState(() => _activeJob = live.isNotEmpty ? live.first : null);
+      }
     } catch (_) {
       if (mounted) setState(() => _activeJob = null);
     } finally {
@@ -228,7 +247,7 @@ class _BookTabState extends State<BookTab> {
     return AppScrollTab(
       slivers: [
         SliverToBoxAdapter(
-          child: _HeroHeader(
+          child: _LandingHero(
             name: name,
             onHelp: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const FaqScreen()),
@@ -236,10 +255,13 @@ class _BookTabState extends State<BookTab> {
           ),
         ),
         SliverToBoxAdapter(
-          child: _WhereToBar(
-            onTap: _openBook,
-            onVehicle: _openBookWithVehicle,
-            vehicleTypes: _vehicleTypes,
+          child: FadeSlideIn(
+            delay: const Duration(milliseconds: 120),
+            child: _WhereToBar(
+              onTap: _openBook,
+              onVehicle: _openBookWithVehicle,
+              vehicleTypes: _vehicleTypes,
+            ),
           ),
         ),
         if (_loading)
@@ -251,21 +273,33 @@ class _BookTabState extends State<BookTab> {
           )
         else if (_activeJob != null)
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: _ActiveJobCard(
-                job: _activeJob!,
-                onRefresh: _refresh,
-                onTap: () => _openJob(_activeJob!),
+            child: FadeSlideIn(
+              delay: const Duration(milliseconds: 180),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: _ActiveJobCard(
+                  job: _activeJob!,
+                  onRefresh: _refresh,
+                  onTap: () => _openJob(_activeJob!),
+                ),
               ),
             ),
           ),
+        const SliverToBoxAdapter(
+          child: FadeSlideIn(
+            delay: Duration(milliseconds: 240),
+            child: _HowItWorks(),
+          ),
+        ),
         SliverToBoxAdapter(
-          child: _QuickActions(
-            onBook: _openBook,
-            onActivity: widget.onNavigateToActivity,
-            onHelp: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const FaqScreen()),
+          child: FadeSlideIn(
+            delay: const Duration(milliseconds: 300),
+            child: _QuickActions(
+              onBook: _openBook,
+              onActivity: widget.onNavigateToActivity,
+              onHelp: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const FaqScreen()),
+              ),
             ),
           ),
         ),
@@ -336,92 +370,148 @@ class _BookTabState extends State<BookTab> {
 // Home widgets
 // ---------------------------------------------------------------------------
 
-/// Glossy dark hero band on the Home tab: greeting, brand-glow ochre accents
-/// and a soft rounded base for the where-to card to float over.
-class _HeroHeader extends StatelessWidget {
-  const _HeroHeader({required this.name, required this.onHelp});
+/// Animated landing hero: dark brand gradient, a looping 3D truck and the
+/// greeting. Everything sits in a padded column, so nothing can overlap.
+class _LandingHero extends StatelessWidget {
+  const _LandingHero({required this.name, required this.onHelp});
 
   final String name;
   final VoidCallback onHelp;
 
   @override
   Widget build(BuildContext context) {
+    final topInset = MediaQuery.of(context).padding.top;
+    final width = MediaQuery.of(context).size.width;
+    final truckSize = (width * 0.36).clamp(104.0, 152.0);
+    final headlineSize = width < 360 ? 21.0 : 24.0;
+    final deep =
+        Color.lerp(MoversApp.brandOrangeDark, const Color(0xFF0E1116), 0.74)!;
+    final deeper =
+        Color.lerp(MoversApp.brandOrangeDark, const Color(0xFF0E1116), 0.92)!;
+
     return Container(
       clipBehavior: Clip.antiAlias,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF14171C), Color(0xFF262B33)],
+          colors: [deep, deeper],
         ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
       ),
       child: Stack(
         children: [
           Positioned(
-            top: 0,
-            right: 0,
-            child: _Glow(
-                diameter: 220, color: MoversApp.brandOrange.withOpacity(0.28)),
+            top: -90,
+            right: -60,
+            child: PulsingGlow(
+              diameter: 260,
+              color: MoversApp.brandOrange.withOpacity(0.50),
+            ),
           ),
           Positioned(
-            bottom: 0,
-            left: 0,
-            child: _Glow(
-                diameter: 200,
-                color: MoversApp.brandOrangeLight.withOpacity(0.12)),
+            bottom: -80,
+            left: -70,
+            child: GlowOrb(
+              diameter: 230,
+              color: Colors.white.withOpacity(0.10),
+            ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-            child: Row(
+            padding: EdgeInsets.fromLTRB(20, topInset + 14, 20, 26),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withOpacity(0.18)),
-                  ),
-                  child: CircleAvatar(
-                    radius: 22,
-                    backgroundColor: MoversApp.brandOrangeLight,
-                    child: Icon(Icons.local_shipping_rounded,
-                        color: MoversApp.brandOrangeDark),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Hi, $name 👋',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                        ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border:
+                            Border.all(color: Colors.white.withOpacity(0.18)),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Ready to move something heavy?',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.62),
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      child: CircleAvatar(
+                        radius: 22,
+                        backgroundColor: MoversApp.brandOrangeLight,
+                        child: Icon(Icons.local_shipping_rounded,
+                            color: MoversApp.brandOrangeDark),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Hi, $name 👋',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 21,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Ready to move something heavy?',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.62),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: onHelp,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.10),
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.help_outline_rounded),
+                      tooltip: 'Help & FAQ',
+                    ),
+                  ],
                 ),
-                IconButton(
-                  onPressed: onHelp,
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.10),
-                    foregroundColor: Colors.white,
-                  ),
-                  icon: const Icon(Icons.help_outline_rounded),
-                  tooltip: 'Help & FAQ',
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Move big things, without the hassle.',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: headlineSize,
+                              height: 1.15,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Book a truck, van or lorry in seconds.',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.68),
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    MovingTruck3D(size: truckSize, motionLines: false),
+                  ],
                 ),
               ],
             ),
@@ -432,22 +522,144 @@ class _HeroHeader extends StatelessWidget {
   }
 }
 
-class _Glow extends StatelessWidget {
-  const _Glow({required this.diameter, required this.color});
-
-  final double diameter;
-  final Color color;
+/// Compact three-step explainer that makes the service obvious at a glance.
+class _HowItWorks extends StatelessWidget {
+  const _HowItWorks();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: diameter,
-      height: diameter,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [color, color.withOpacity(0)],
-        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('How it works',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontSize: 16)),
+          const SizedBox(height: 12),
+          const SkeuoCard(
+            radius: 22,
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Column(
+              children: [
+                _HowStep(
+                  index: 1,
+                  icon: Icons.pin_drop_rounded,
+                  title: 'Set your route',
+                  subtitle: 'Add pickup and drop-off details.',
+                ),
+                Divider(height: 1, color: Color(0xFFEEF0F3)),
+                _HowStep(
+                  index: 2,
+                  icon: Icons.support_agent_rounded,
+                  title: 'Get matched',
+                  subtitle: 'We assign a verified mover and vehicle.',
+                ),
+                Divider(height: 1, color: Color(0xFFEEF0F3)),
+                _HowStep(
+                  index: 3,
+                  icon: Icons.payments_rounded,
+                  title: 'Track & pay',
+                  subtitle: 'Follow the move live and pay upfront.',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HowStep extends StatelessWidget {
+  const _HowStep({
+    required this.index,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final int index;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Skeuo.shade(MoversApp.brandOrangeLight, 0.25),
+                      Skeuo.shade(MoversApp.brandOrangeLight, -0.06),
+                    ],
+                  ),
+                  border: Border.all(
+                      color: Skeuo.shade(MoversApp.brandOrangeLight, -0.18)),
+                  boxShadow: Skeuo.raisedShadows(depth: 0.4),
+                ),
+                child: Icon(icon, color: MoversApp.brandOrangeDark, size: 22),
+              ),
+              Positioned(
+                top: -5,
+                right: -5,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: MoversApp.brandOrange,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: Text(
+                    '$index',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: MoversApp.ink,
+                    )),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: MoversApp.inkMuted,
+                      height: 1.35,
+                    )),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -468,13 +680,10 @@ class _WhereToBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(26),
-          boxShadow: premiumShadow,
-        ),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      child: SkeuoCard(
+        radius: 26,
+        padding: EdgeInsets.zero,
         child: Column(
           children: [
             InkWell(
@@ -490,8 +699,8 @@ class _WhereToBar extends StatelessWidget {
                       color: MoversApp.brandOrange,
                       hint: 'Pickup location',
                     ),
-                    Divider(height: 1, color: Color(0xFFEEF0F3)),
-                    _RouteRow(
+                    const Divider(height: 1, color: Color(0xFFEEF0F3)),
+                    const _RouteRow(
                       icon: Icons.sports_score_rounded,
                       color: Color(0xFF16A34A),
                       hint: 'Where are you moving to?',
@@ -500,13 +709,15 @@ class _WhereToBar extends StatelessWidget {
                 ),
               ),
             ),
-            Container(
-              width: double.infinity,
+            Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: FilledButton.icon(
+              child: SkeuoButton(
+                label: 'Book a move',
+                icon: Icons.search_rounded,
+                color: MoversApp.brandOrange,
+                height: 52,
+                radius: 16,
                 onPressed: onTap,
-                icon: const Icon(Icons.search_rounded, size: 20),
-                label: const Text('Book a move'),
               ),
             ),
             Padding(
@@ -584,19 +795,17 @@ class _VehicleChip extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
-      child: Container(
+      child: SkeuoInset(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        decoration: BoxDecoration(
-          color: MoversApp.surfaceMuted,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFEAF0EE)),
-        ),
         child: Column(
           children: [
             Icon(icon, color: MoversApp.brandOrangeDark, size: 22),
             const SizedBox(height: 6),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
@@ -784,42 +993,37 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFEAF0EE)),
-            boxShadow: tileShadow,
-          ),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: color, size: 20),
+    return SkeuoCard(
+      radius: 16,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [color.withOpacity(0.22), color.withOpacity(0.10)],
               ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: MoversApp.ink,
-                ),
-              ),
-            ],
+              border: Border.all(color: color.withOpacity(0.20)),
+              boxShadow: Skeuo.raisedShadows(depth: 0.35, tint: color),
+            ),
+            child: Icon(icon, color: color, size: 20),
           ),
-        ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: MoversApp.ink,
+            ),
+          ),
+        ],
       ),
     );
   }

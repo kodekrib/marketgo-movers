@@ -23,6 +23,44 @@ if (flutterVersionName == null) {
     flutterVersionName = "1.0"
 }
 
+// Local APK builds use Android's automatic debug signing. Production signing
+// is opt-in so `flutter build apk` works before app registration or key setup.
+def marketgoSigning = new Properties()
+def marketgoSigningFile = rootProject.file("key.properties")
+if (marketgoSigningFile.exists()) {
+    marketgoSigningFile.withInputStream { marketgoSigning.load(it) }
+}
+def marketgoApplicationId = (
+    project.findProperty("MARKETGO_APPLICATION_ID") ?:
+    System.getenv("MARKETGO_APPLICATION_ID") ?:
+    localProperties.getProperty("MARKETGO_APPLICATION_ID") ?:
+    marketgoSigning.getProperty("applicationId")
+)?.toString()?.trim()
+def marketgoProductionValue = (
+    project.findProperty("MARKETGO_PRODUCTION") ?:
+    System.getenv("MARKETGO_PRODUCTION") ?:
+    localProperties.getProperty("MARKETGO_PRODUCTION") ?: "false"
+).toString().trim().toLowerCase()
+if (!(marketgoProductionValue in ["true", "false"])) {
+    throw new GradleException("MARKETGO_PRODUCTION must be true or false.")
+}
+def marketgoProduction = marketgoProductionValue == "true"
+def marketgoHasSigning = marketgoSigningFile.exists() &&
+    ["storeFile", "storePassword", "keyAlias", "keyPassword"].every { marketgoSigning[it] }
+gradle.taskGraph.whenReady { graph ->
+    if (marketgoProduction && graph.allTasks.any { it.project == project && it.name.toLowerCase().contains("release") }) {
+        if (!marketgoApplicationId || marketgoApplicationId.startsWith("com.example.") || marketgoApplicationId == "com.yourcompany.movers") {
+            throw new GradleException("Production requires your registered MARKETGO_APPLICATION_ID. Configure android/local.properties or applicationId in android/key.properties.")
+        }
+        if (!marketgoHasSigning) {
+            throw new GradleException("Production requires android/key.properties with storeFile, storePassword, keyAlias and keyPassword. Use android/key.properties.example as the local template.")
+        }
+        if (!rootProject.file(marketgoSigning["storeFile"]).isFile()) {
+            throw new GradleException("The configured production keystore file does not exist.")
+        }
+    }
+}
+
 android {
     namespace = "com.example.movers"
     compileSdk = flutter.compileSdkVersion
@@ -39,7 +77,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.movers"
+        applicationId = marketgoApplicationId ?: "com.example.movers"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
         minSdk = flutter.minSdkVersion
@@ -48,11 +86,21 @@ android {
         versionName = flutterVersionName
     }
 
+    signingConfigs {
+        production {
+            if (marketgoProduction && marketgoHasSigning) {
+                storeFile = rootProject.file(marketgoSigning["storeFile"])
+                storePassword = marketgoSigning["storePassword"]
+                keyAlias = marketgoSigning["keyAlias"]
+                keyPassword = marketgoSigning["keyPassword"]
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            // Test APKs are installable without production credentials.
+            signingConfig = marketgoProduction ? signingConfigs.production : signingConfigs.debug
         }
     }
 }

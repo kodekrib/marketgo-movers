@@ -10,8 +10,11 @@ class SavedAddress {
     required this.label,
     required this.address,
     this.isDefault = false,
+    this.latitude,
+    this.longitude,
   });
 
+  final double? latitude, longitude;
   final String id;
   final String label;
   final String address;
@@ -22,12 +25,22 @@ class SavedAddress {
         label: label,
         address: address,
         isDefault: isDefault ?? this.isDefault,
+        latitude: latitude,
+        longitude: longitude,
       );
 
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'label': label, 'address': address, 'isDefault': isDefault};
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
+        'address': address,
+        'isDefault': isDefault,
+        'latitude': latitude,
+        'longitude': longitude
+      };
 
   factory SavedAddress.fromJson(Map<String, dynamic> json) => SavedAddress(
+        latitude: (json['latitude'] as num?)?.toDouble(),
+        longitude: (json['longitude'] as num?)?.toDouble(),
         id: json['id'] as String? ?? '',
         label: json['label'] as String? ?? '',
         address: json['address'] as String? ?? '',
@@ -59,8 +72,13 @@ class PaymentMethod {
         isDefault: isDefault ?? this.isDefault,
       );
 
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'brand': brand, 'last4': last4, 'expiry': expiry, 'isDefault': isDefault};
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'brand': brand,
+        'last4': last4,
+        'expiry': expiry,
+        'isDefault': isDefault
+      };
 
   factory PaymentMethod.fromJson(Map<String, dynamic> json) => PaymentMethod(
         id: json['id'] as String? ?? '',
@@ -148,7 +166,8 @@ class AccountStore extends ChangeNotifier {
   List<SavedAddress> get addresses => List.unmodifiable(_addresses);
   List<PaymentMethod> get cards => List.unmodifiable(_cards);
   List<FavouriteStore> get favouriteStores => List.unmodifiable(_favStores);
-  List<FavouriteProduct> get favouriteProducts => List.unmodifiable(_favProducts);
+  List<FavouriteProduct> get favouriteProducts =>
+      List.unmodifiable(_favProducts);
 
   SavedAddress? get defaultAddress {
     for (final a in _addresses) {
@@ -182,7 +201,8 @@ class AccountStore extends ChangeNotifier {
 
   // -- Addresses -------------------------------------------------------------
 
-  Future<void> addAddress(String label, String address) async {
+  Future<void> addAddress(String label, String address,
+      {double? latitude, double? longitude}) async {
     final prefs = await SharedPreferences.getInstance();
     _addresses = [
       ..._addresses,
@@ -191,6 +211,8 @@ class AccountStore extends ChangeNotifier {
         label: label,
         address: address,
         isDefault: _addresses.isEmpty,
+        latitude: latitude,
+        longitude: longitude,
       ),
     ];
     notifyListeners();

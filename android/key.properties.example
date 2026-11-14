@@ -1,0 +1,6 @@
+# Replace with the registered ID for production builds.
+applicationId=com.yourcompany.movers
+storeFile=/absolute/path/to/production-upload-keystore.jks
+storePassword=REPLACE_LOCALLY
+keyAlias=REPLACE_LOCALLY
+keyPassword=REPLACE_LOCALLY

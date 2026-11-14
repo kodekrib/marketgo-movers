@@ -15,3 +15,9 @@ For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
 # marketgo-movers
+
+## Android APK builds
+
+Run `flutter build apk` for a test-signed APK without production key setup.
+Use `MARKETGO_PRODUCTION=true` only when building with your registered app ID
+and production signing credentials. See [Android build instructions](ANDROID-BUILDS.md).

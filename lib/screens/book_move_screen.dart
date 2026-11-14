@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/maps_service.dart';
 import '../services/mover_service.dart';
 import '../widgets/common.dart';
+import '../widgets/movers_app_bar.dart';
 import '../widgets/place_search_field.dart';
 import 'job_detail_screen.dart';
 
@@ -249,7 +250,7 @@ class _BookMoveScreenState extends State<BookMoveScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Book a move')),
+      appBar: const MoversAppBar(title: 'Book a move'),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),

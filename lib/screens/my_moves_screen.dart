@@ -83,7 +83,10 @@ class _MyMovesTabState extends State<MyMovesTab> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text('Active',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16)),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontSize: 16)),
               ),
             ),
             SliverList(
@@ -101,7 +104,10 @@ class _MyMovesTabState extends State<MyMovesTab> {
             child: Padding(
               padding: EdgeInsets.fromLTRB(20, active.isEmpty ? 0 : 20, 20, 8),
               child: Text('History',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontSize: 16)),
             ),
           ),
           if (history.isEmpty)

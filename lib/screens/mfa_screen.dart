@@ -5,9 +5,9 @@ import '../services/auth_service.dart';
 /// Multi-factor code screen shown after a password sign-in that answered with
 /// `mfa_required`.
 ///
-/// The one-time code (delivered over the challenge channels, e.g. email) is
-/// exchanged for a token pair through [AuthModel.verifyMfaCode]; on success
-/// the caller's `onVerified` fires and the screen pops.
+/// The one-time code (delivered over the challenge channels: email, WhatsApp
+/// or SMS) is exchanged for a token pair through [AuthModel.verifyMfaCode]; on
+/// success the caller's `onVerified` fires and the screen pops.
 class MfaScreen extends StatefulWidget {
   const MfaScreen({
     super.key,
@@ -39,6 +39,14 @@ class _MfaScreenState extends State<MfaScreen> {
     final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits != value) _codeController.text = digits;
     if (_localError != null) setState(() => _localError = null);
+  }
+
+  /// " by email and SMS" (or similar) when the server reported the challenge
+  /// channels; empty when nothing was reported.
+  String get _sentVia {
+    final label =
+        describeOtpChannels(widget.auth.pendingMfa?.channels ?? const []);
+    return label.isEmpty ? '' : ' by $label';
   }
 
   Future<void> _verify() async {
@@ -105,7 +113,7 @@ class _MfaScreenState extends State<MfaScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'We emailed a one-time code to ${widget.email}. '
+                    'We sent a one-time code to ${widget.email}$_sentVia. '
                     'Enter it below to finish signing in.',
                     style: theme.textTheme.bodyMedium,
                   ),

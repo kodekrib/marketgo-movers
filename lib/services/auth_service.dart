@@ -2,15 +2,32 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
 
+/// Formats the delivery channels reported by the OTP API for display, e.g.
+/// "SMS", "WhatsApp" or "email and SMS". Returns an empty string when the
+/// server did not report any channel.
+String describeOtpChannels(List<String> channels) {
+  const order = ['email', 'whatsapp', 'sms'];
+  const labels = {'email': 'email', 'whatsapp': 'WhatsApp', 'sms': 'SMS'};
+  final parts = [
+    for (final key in order)
+      if (channels.contains(key)) labels[key]!,
+  ];
+  if (parts.isEmpty) return '';
+  if (parts.length == 1) return parts.first;
+  return '${parts.take(parts.length - 1).join(', ')} and ${parts.last}';
+}
+
 /// The signed-in mover customer profile returned by /api/v1/auth/me.
 class AuthUser {
   const AuthUser({
+    this.avatarUrl = '',
     required this.id,
     required this.email,
     required this.name,
     required this.role,
   });
 
+  final String avatarUrl;
   final String id;
   final String email;
   final String name;
@@ -18,6 +35,7 @@ class AuthUser {
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     return AuthUser(
+      avatarUrl: json['avatar_url'] as String? ?? '',
       id: '${json['id']}',
       email: json['email'] as String? ?? '',
       name: json['name'] as String? ?? '',
@@ -244,6 +262,15 @@ class AuthModel extends ChangeNotifier {
   MfaChallenge? _pendingMfa;
 
   AuthUser? get user => _user;
+  Future<void> refreshProfile() async {
+    final token = accessToken;
+    if (token == null) return;
+    final data = await api
+        .get('/api/v1/auth/me', headers: {'Authorization': 'Bearer $token'});
+    _user = AuthUser.fromJson(Map<String, dynamic>.from(data['user'] as Map));
+    notifyListeners();
+  }
+
   bool get isAuthenticated => _user != null;
   bool get loading => _loading;
   bool get restoring => _restoring;
@@ -455,4 +482,13 @@ class AuthModel extends ChangeNotifier {
       } catch (_) {}
     }
   }
+}
+
+/// The app's single live session, set by the shell. Screens that don't receive
+/// an [AuthModel] directly (such as the notifications bell on a sub-screen) can
+/// still read the current token from here.
+class MoversSession {
+  MoversSession._();
+
+  static AuthModel? instance;
 }

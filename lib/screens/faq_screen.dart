@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app.dart';
 import '../models/faq.dart';
 import '../services/api_client.dart';
 import '../services/faq_service.dart';
+import '../services/settings_service.dart';
+import '../widgets/movers_app_bar.dart';
 
 /// Help & FAQ — collapsible Q&A pulled from `/api/v1/faqs/movers`.
 class FaqScreen extends StatefulWidget {
@@ -17,6 +20,7 @@ class _FaqScreenState extends State<FaqScreen> {
   final FaqService _service = FaqService(api: ApiClient());
 
   List<FaqEntry> _faqs = [];
+  AppSettings _settings = const AppSettings();
   bool _loading = true;
   String? _error;
 
@@ -31,6 +35,8 @@ class _FaqScreenState extends State<FaqScreen> {
       _loading = true;
       _error = null;
     });
+    final settings = await SettingsService.fetchSettings();
+    if (mounted) setState(() => _settings = settings);
     try {
       final faqs = await _service.byTarget('movers');
       if (!mounted) return;
@@ -43,11 +49,51 @@ class _FaqScreenState extends State<FaqScreen> {
     }
   }
 
+  /// Tappable support actions derived from the admin-configured contacts.
+  List<Widget> _contactCards() {
+    final children = <Widget>[];
+    final phone = _settings.supportPhone.trim();
+    final email = _settings.supportEmail.trim();
+    if (phone.isNotEmpty) {
+      children.add(Expanded(
+        child: _ContactCard(
+          icon: Icons.phone_outlined,
+          label: 'Call support',
+          onTap: () => _launch(Uri(scheme: 'tel', path: phone)),
+        ),
+      ));
+    }
+    if (email.isNotEmpty) {
+      if (children.isNotEmpty) children.add(const SizedBox(width: 10));
+      children.add(Expanded(
+        child: _ContactCard(
+          icon: Icons.email_outlined,
+          label: 'Email us',
+          onTap: () => _launch(Uri(scheme: 'mailto', path: email)),
+        ),
+      ));
+    }
+    return children;
+  }
+
+  Future<void> _launch(Uri uri) async {
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open ${uri.scheme} on this device.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Help & FAQ')),
+      appBar: const MoversAppBar(title: 'Help & FAQ'),
       body: SafeArea(
         child: Column(
           children: [
@@ -182,6 +228,61 @@ class _FaqScreenState extends State<FaqScreen> {
                         },
                       ),
               ),
+            if (_contactCards().isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFEAF0EE))),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Still need help?',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 14)),
+                    const SizedBox(height: 10),
+                    Row(children: _contactCards()),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactCard extends StatelessWidget {
+  const _ContactCard({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: MoversApp.brandOrangeLight.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: MoversApp.brandOrangeDark),
+            const SizedBox(height: 8),
+            Text(label,
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
           ],
         ),
       ),

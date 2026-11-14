@@ -23,7 +23,8 @@ Future<void> ensureGoogleMaps(String apiKey) {
 Future<void> _injectAndWait(String key) async {
   if (web.document.getElementById(_scriptId) == null) {
     final completer = Completer<void>();
-    final script = web.document.createElement('script') as web.HTMLScriptElement;
+    final script =
+        web.document.createElement('script') as web.HTMLScriptElement;
     script.id = _scriptId;
     script.src =
         'https://maps.googleapis.com/maps/api/js?key=${Uri.encodeQueryComponent(key)}&v=weekly';
@@ -36,8 +37,8 @@ Future<void> _injectAndWait(String key) async {
       if (!completer.isCompleted) completer.complete();
     }.toJS;
     web.document.head!.append(script);
-    await completer.future.timeout(const Duration(seconds: 20),
-        onTimeout: () {});
+    await completer.future
+        .timeout(const Duration(seconds: 20), onTimeout: () {});
   }
   _done = true;
 }

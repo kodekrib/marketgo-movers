@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app.dart';
 import '../services/account_store.dart';
 import '../widgets/common.dart';
+import '../widgets/movers_app_bar.dart';
 
 /// Stores and products favourited from the MarketGO storefront (stored
 /// locally on the device).
@@ -27,10 +28,8 @@ class _FavouritesScreenState extends State<FavouritesScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAF9),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF8FAF9),
-        surfaceTintColor: Colors.transparent,
-        title: const Text('Favourites'),
+      appBar: MoversAppBar(
+        title: 'Favourites',
         bottom: TabBar(
           controller: _tabs,
           labelColor: MoversApp.brandOrangeDark,
@@ -50,9 +49,10 @@ class _FavouritesScreenState extends State<FavouritesScreen>
             builder: (context, _) {
               final stores = AccountStore.instance.favouriteStores;
               if (stores.isEmpty) {
-                return const _EmptyFavourites(
+                return _EmptyFavourites(
                   icon: Icons.storefront_outlined,
-                  message: 'Stores you favourite from the MarketGO storefront '
+                  message:
+                      'Stores you favourite from the ${MoversApp.appName} storefront '
                       'will show up here.',
                 );
               }
@@ -92,13 +92,14 @@ class _FavouritesScreenState extends State<FavouritesScreen>
                                       fontSize: 15)),
                               if (s.tagline.isNotEmpty)
                                 Text(s.tagline,
-                                    style: Theme.of(context).textTheme.bodyMedium),
+                                    style:
+                                        Theme.of(context).textTheme.bodyMedium),
                             ],
                           ),
                         ),
                         IconButton(
-                          onPressed: () => AccountStore.instance
-                              .toggleFavouriteStore(s),
+                          onPressed: () =>
+                              AccountStore.instance.toggleFavouriteStore(s),
                           icon: Icon(Icons.favorite_rounded,
                               color: MoversApp.brandOrangeDark),
                         ),
@@ -114,9 +115,10 @@ class _FavouritesScreenState extends State<FavouritesScreen>
             builder: (context, _) {
               final products = AccountStore.instance.favouriteProducts;
               if (products.isEmpty) {
-                return const _EmptyFavourites(
+                return _EmptyFavourites(
                   icon: Icons.favorite_border_rounded,
-                  message: 'Products you favourite from the MarketGO storefront '
+                  message:
+                      'Products you favourite from the ${MoversApp.appName} storefront '
                       'will show up here.',
                 );
               }
@@ -157,7 +159,8 @@ class _FavouritesScreenState extends State<FavouritesScreen>
                                       fontWeight: FontWeight.w700,
                                       fontSize: 15)),
                               Text('${p.vendorName} · ${p.unit}',
-                                  style: Theme.of(context).textTheme.bodyMedium),
+                                  style:
+                                      Theme.of(context).textTheme.bodyMedium),
                             ],
                           ),
                         ),
@@ -165,8 +168,8 @@ class _FavouritesScreenState extends State<FavouritesScreen>
                             style: const TextStyle(
                                 fontWeight: FontWeight.w800, fontSize: 13)),
                         IconButton(
-                          onPressed: () => AccountStore.instance
-                              .toggleFavouriteProduct(p),
+                          onPressed: () =>
+                              AccountStore.instance.toggleFavouriteProduct(p),
                           icon: Icon(Icons.favorite_rounded,
                               color: MoversApp.brandOrangeDark),
                         ),
