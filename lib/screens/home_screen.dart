@@ -57,7 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
       listenable: _auth,
       builder: (context, _) {
         return Scaffold(
-          appBar: MoversAppBar(title: _tabTitles[_tabIndex]),
+          appBar:
+              MoversAppBar(title: _tabIndex == 0 ? '' : _tabTitles[_tabIndex]),
           body: _buildTab(_tabIndex),
           bottomNavigationBar: _MoversNav(
             currentIndex: _tabIndex,
@@ -192,13 +193,11 @@ class BookTab extends StatefulWidget {
 class _BookTabState extends State<BookTab> {
   MovingJob? _activeJob;
   bool _loading = false;
-  List<MoverVehicleType> _vehicleTypes = const [];
 
   @override
   void initState() {
     super.initState();
     _loadActive();
-    _loadVehicleTypes();
   }
 
   @override
@@ -206,15 +205,6 @@ class _BookTabState extends State<BookTab> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.auth.isAuthenticated != widget.auth.isAuthenticated) {
       _loadActive();
-    }
-  }
-
-  Future<void> _loadVehicleTypes() async {
-    try {
-      final types = await widget.movers.vehicleTypes();
-      if (mounted) setState(() => _vehicleTypes = types);
-    } catch (_) {
-      if (mounted) setState(() => _vehicleTypes = const []);
     }
   }
 
@@ -257,11 +247,7 @@ class _BookTabState extends State<BookTab> {
         SliverToBoxAdapter(
           child: FadeSlideIn(
             delay: const Duration(milliseconds: 120),
-            child: _WhereToBar(
-              onTap: _openBook,
-              onVehicle: _openBookWithVehicle,
-              vehicleTypes: _vehicleTypes,
-            ),
+            child: _BookingCta(onTap: _openBook),
           ),
         ),
         if (_loading)
@@ -318,24 +304,6 @@ class _BookTabState extends State<BookTab> {
           MaterialPageRoute<void>(
             builder: (_) =>
                 BookMoveScreen(auth: widget.auth, movers: widget.movers),
-          ),
-        )
-        .then((_) => _refresh());
-  }
-
-  void _openBookWithVehicle(String vehicleType) {
-    if (!widget.auth.isAuthenticated) {
-      _openLogin();
-      return;
-    }
-    Navigator.of(context)
-        .push(
-          MaterialPageRoute<void>(
-            builder: (_) => BookMoveScreen(
-              auth: widget.auth,
-              movers: widget.movers,
-              initialVehicleType: vehicleType,
-            ),
           ),
         )
         .then((_) => _refresh());
@@ -665,17 +633,11 @@ class _HowStep extends StatelessWidget {
   }
 }
 
-/// Uber-style destination card: pickup + drop-off rows that open booking.
-class _WhereToBar extends StatelessWidget {
-  const _WhereToBar({
-    required this.onTap,
-    required this.onVehicle,
-    required this.vehicleTypes,
-  });
+/// Illustrated invitation to the full booking form.
+class _BookingCta extends StatelessWidget {
+  const _BookingCta({required this.onTap});
 
   final VoidCallback onTap;
-  final ValueChanged<String> onVehicle;
-  final List<MoverVehicleType> vehicleTypes;
 
   @override
   Widget build(BuildContext context) {
@@ -683,135 +645,102 @@ class _WhereToBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
       child: SkeuoCard(
         radius: 26,
-        padding: EdgeInsets.zero,
+        padding: const EdgeInsets.all(20),
+        onTap: onTap,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            InkWell(
-              onTap: onTap,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-                child: Column(
+            ExcludeSemantics(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+                decoration: BoxDecoration(
+                  color: MoversApp.brandOrangeLight.withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
                   children: [
-                    _RouteRow(
-                      icon: Icons.trip_origin_rounded,
-                      color: MoversApp.brandOrange,
-                      hint: 'Pickup location',
-                    ),
-                    const Divider(height: 1, color: Color(0xFFEEF0F3)),
-                    const _RouteRow(
-                      icon: Icons.sports_score_rounded,
-                      color: Color(0xFF16A34A),
-                      hint: 'Where are you moving to?',
-                    ),
+                    _stop(Icons.inventory_2_rounded, 'Pack'),
+                    _connector(),
+                    _stop(Icons.local_shipping_rounded, 'Move'),
+                    _connector(),
+                    _stop(Icons.home_rounded, 'Arrive'),
                   ],
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: SkeuoButton(
-                label: 'Book a move',
-                icon: Icons.search_rounded,
-                color: MoversApp.brandOrange,
-                height: 52,
-                radius: 16,
-                onPressed: onTap,
+            const SizedBox(height: 18),
+            const Text(
+              'Your next move starts here',
+              style: TextStyle(
+                fontSize: 21,
+                height: 1.2,
+                fontWeight: FontWeight.w800,
+                color: MoversApp.ink,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
-              child: Row(
-                children: List.generate(vehicleTypes.length, (index) {
-                  final v = vehicleTypes[index];
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: index < vehicleTypes.length - 1 ? 8 : 0,
-                      ),
-                      child: _VehicleChip(
-                        icon: vehicleIconForType(v.name),
-                        label: v.label,
-                        onTap: () => onVehicle(v.name),
-                      ),
-                    ),
-                  );
-                }),
-              ),
+            const SizedBox(height: 8),
+            const Text(
+              'From a single item to a whole home. Tell us where, and we’ll help you get moving.',
+              style: TextStyle(
+                  fontSize: 13, height: 1.5, color: MoversApp.inkMuted),
+            ),
+            const SizedBox(height: 18),
+            SkeuoButton(
+              label: 'Book a move',
+              icon: Icons.arrow_forward_rounded,
+              color: MoversApp.brandOrange,
+              height: 52,
+              radius: 16,
+              onPressed: onTap,
             ),
           ],
         ),
       ),
     );
   }
-}
 
-class _RouteRow extends StatelessWidget {
-  const _RouteRow(
-      {required this.icon, required this.color, required this.hint});
-
-  final IconData icon;
-  final Color color;
-  final String hint;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              hint,
-              style: const TextStyle(
-                color: Color(0xFF9AA1AA),
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
+  Widget _stop(IconData icon, String label) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: MoversApp.brandOrange.withOpacity(0.12),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+          child: Icon(icon, color: MoversApp.brandOrangeDark, size: 28),
+        ),
+        const SizedBox(height: 8),
+        Text(label,
+            style: const TextStyle(
+                color: MoversApp.ink,
+                fontSize: 11,
+                fontWeight: FontWeight.w700)),
+      ],
     );
   }
-}
 
-class _VehicleChip extends StatelessWidget {
-  const _VehicleChip({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: SkeuoInset(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        child: Column(
+  Widget _connector() {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.only(left: 4, right: 4, bottom: 22),
+        child: Row(
           children: [
-            Icon(icon, color: MoversApp.brandOrangeDark, size: 22),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                color: MoversApp.ink,
-              ),
-            ),
+            Expanded(
+                child: Container(
+                    height: 2, color: MoversApp.brandOrange.withOpacity(0.3))),
+            Icon(Icons.chevron_right_rounded,
+                size: 18, color: MoversApp.brandOrange),
           ],
         ),
       ),

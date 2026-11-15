@@ -6,8 +6,8 @@ void main() {
   testWidgets('Movers app renders home shell', (WidgetTester tester) async {
     await tester.pumpWidget(const MoversApp());
 
-    // Home appears in both the app bar and bottom navigation.
-    expect(find.text('Home'), findsNWidgets(2));
+    // The home header leaves its title empty; navigation keeps the Home label.
+    expect(find.text('Home'), findsOneWidget);
     expect(find.text('Activity'), findsOneWidget);
     expect(find.text('Account'), findsOneWidget);
   });
