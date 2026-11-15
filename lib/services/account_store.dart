@@ -48,48 +48,7 @@ class SavedAddress {
       );
 }
 
-/// A saved payment card (local-first).
-class PaymentMethod {
-  const PaymentMethod({
-    required this.id,
-    required this.brand,
-    required this.last4,
-    required this.expiry,
-    this.isDefault = false,
-  });
-
-  final String id;
-  final String brand;
-  final String last4;
-  final String expiry;
-  final bool isDefault;
-
-  PaymentMethod copyWith({bool? isDefault}) => PaymentMethod(
-        id: id,
-        brand: brand,
-        last4: last4,
-        expiry: expiry,
-        isDefault: isDefault ?? this.isDefault,
-      );
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'brand': brand,
-        'last4': last4,
-        'expiry': expiry,
-        'isDefault': isDefault
-      };
-
-  factory PaymentMethod.fromJson(Map<String, dynamic> json) => PaymentMethod(
-        id: json['id'] as String? ?? '',
-        brand: json['brand'] as String? ?? '',
-        last4: json['last4'] as String? ?? '',
-        expiry: json['expiry'] as String? ?? '',
-        isDefault: json['isDefault'] == true,
-      );
-}
-
-/// A store favourited from the storefront (id + display fields only).
+/// A store favourited from the storefront.
 class FavouriteStore {
   const FavouriteStore({
     required this.id,
@@ -158,13 +117,11 @@ class AccountStore extends ChangeNotifier {
   static const _kFavProducts = 'movers.account.fav_products';
 
   List<SavedAddress> _addresses = [];
-  List<PaymentMethod> _cards = [];
   List<FavouriteStore> _favStores = [];
   List<FavouriteProduct> _favProducts = [];
   bool _loaded = false;
 
   List<SavedAddress> get addresses => List.unmodifiable(_addresses);
-  List<PaymentMethod> get cards => List.unmodifiable(_cards);
   List<FavouriteStore> get favouriteStores => List.unmodifiable(_favStores);
   List<FavouriteProduct> get favouriteProducts =>
       List.unmodifiable(_favProducts);
@@ -176,13 +133,6 @@ class AccountStore extends ChangeNotifier {
     return _addresses.isEmpty ? null : _addresses.first;
   }
 
-  PaymentMethod? get defaultCard {
-    for (final c in _cards) {
-      if (c.isDefault) return c;
-    }
-    return _cards.isEmpty ? null : _cards.first;
-  }
-
   bool isFavouriteStore(String id) => _favStores.any((s) => s.id == id);
 
   bool isFavouriteProduct(String id) => _favProducts.any((p) => p.id == id);
@@ -192,7 +142,7 @@ class AccountStore extends ChangeNotifier {
     if (_loaded) return;
     final prefs = await SharedPreferences.getInstance();
     _addresses = _readList(prefs, _kAddresses, SavedAddress.fromJson);
-    _cards = _readList(prefs, _kCards, PaymentMethod.fromJson);
+    await prefs.remove(_kCards); // Erase legacy card summaries on upgrade.
     _favStores = _readList(prefs, _kFavStores, FavouriteStore.fromJson);
     _favProducts = _readList(prefs, _kFavProducts, FavouriteProduct.fromJson);
     _loaded = true;
@@ -240,44 +190,6 @@ class AccountStore extends ChangeNotifier {
     ];
     notifyListeners();
     await _persist(prefs, _kAddresses, _addresses);
-  }
-
-  // -- Payment methods -------------------------------------------------------
-
-  Future<void> addCard(String brand, String number, String expiry) async {
-    final prefs = await SharedPreferences.getInstance();
-    final last4 =
-        number.length >= 4 ? number.substring(number.length - 4) : number;
-    _cards = [
-      ..._cards,
-      PaymentMethod(
-        id: 'card-${DateTime.now().microsecondsSinceEpoch}',
-        brand: brand,
-        last4: last4,
-        expiry: expiry,
-        isDefault: _cards.isEmpty,
-      ),
-    ];
-    notifyListeners();
-    await _persist(prefs, _kCards, _cards);
-  }
-
-  Future<void> removeCard(String id) async {
-    final prefs = await SharedPreferences.getInstance();
-    final wasDefault = defaultCard?.id == id;
-    _cards = _cards.where((c) => c.id != id).toList();
-    if (wasDefault && _cards.isNotEmpty) {
-      _cards = [defaultCard!];
-    }
-    notifyListeners();
-    await _persist(prefs, _kCards, _cards);
-  }
-
-  Future<void> setDefaultCard(String id) async {
-    final prefs = await SharedPreferences.getInstance();
-    _cards = [for (final c in _cards) c.copyWith(isDefault: c.id == id)];
-    notifyListeners();
-    await _persist(prefs, _kCards, _cards);
   }
 
   // -- Favourites ------------------------------------------------------------
@@ -328,8 +240,6 @@ class AccountStore extends ChangeNotifier {
       jsonEncode([
         for (final item in items)
           if (item is SavedAddress)
-            item.toJson()
-          else if (item is PaymentMethod)
             item.toJson()
           else if (item is FavouriteStore)
             item.toJson()
